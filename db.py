@@ -54,6 +54,18 @@ CREATE TABLE IF NOT EXISTS daily_symptom (
     PRIMARY KEY (user_id, date, symptom),
     FOREIGN KEY (user_id, date) REFERENCES daily_log(user_id, date) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS partner_links (
+    id              INTEGER PRIMARY KEY,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    partner_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    invite_code     TEXT NOT NULL UNIQUE,
+    status          TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'revoked', 'expired')),
+    created_at      TEXT NOT NULL,
+    expires_at      TEXT NOT NULL,
+    accepted_at     TEXT,
+    revoked_at      TEXT,
+    CHECK (partner_user_id IS NULL OR partner_user_id != user_id)
+);
 CREATE TABLE IF NOT EXISTS cycle (
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     start_date TEXT NOT NULL CHECK (date(start_date) IS start_date),

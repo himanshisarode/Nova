@@ -111,12 +111,16 @@ Acceptance (measured on simulated people):
 - Partner-scoped reads return dashboard, Cycle Trends, and predictions
   only — never raw daily logs or remedy_log
 Acceptance:
-- [ ] Linked partner sees the shared view, any attempted write is
+- [x] Linked partner sees the shared view, any attempted write is
       rejected at the function level, not just hidden from the UI
-- [ ] Partner-scoped queries can't reach daily_log rows or remedy_log
-- [ ] Reused code and expired code (>48h) both fail, tested
-- [ ] A→B link doesn't grant A access to B
-- [ ] Revoke removes access immediately, tested
+      (read-only SQLite connection; verified the tests fail if it's
+      made writable)
+- [x] Partner-scoped queries can't reach daily_log rows or remedy_log
+      (PartnerView's public API is pinned by a test)
+- [x] Reused code and expired code (>48h) both fail, tested
+- [x] A→B link doesn't grant A access to B
+- [x] Revoke removes access immediately, even for an already-open view
+      (verified the test fails without the per-read check)
 
 ### Phase 5 — pregnancy.py — DEFERRED
 See SPEC.md "Not yet built".

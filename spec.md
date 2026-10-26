@@ -201,6 +201,19 @@ items stay listed here as a pointer.
     view of the inviter's dashboard, Cycle Trends, and predictions only —
     NOT raw daily logs, NOT the remedy log. Revocable anytime from
     settings, and revoking removes access immediately.
+    - Codes are 8 characters from an alphabet without look-alikes
+      (no 0/O, 1/I/L), shown as ABCD-EFGH; typing them with spaces,
+      dashes, or lowercase still works.
+    - Only the owner (inviter) can revoke a link or cancel an unused
+      code. Revoked and expired links keep their dates in the database.
+    - Concretely, the partner gets: completed cycles (for the dashboard
+      and Cycle Trends), the last period start, and the Simple/Honest
+      period predictions. Not the fertile-window estimate, not
+      irregularity flags or their explanations (those are built from
+      daily logs) — see Open Questions.
+    - Enforcement: the partner reads through a separate SQLite
+      connection opened read-only (mode=ro + query_only), and the link
+      is re-checked on every read.
 11. *Pregnancy mode — deferred, see "Not yet built"*
 12. *Symptom Checker — deferred, see "Not yet built"*
 13. Pastel, card-based UI throughout (see Design)
@@ -320,6 +333,13 @@ Dockerfile, docker-compose.yml, README.md
   silently disappear? Leaning toward keeping that trace — mainly for your
   own clarity — but not firmly decided. (The schema keeps accepted_at /
   revoked_at either way, so this is only a display decision.)
+- Should a partner also see the fertile-window estimate and/or
+  irregularity flags? Feature 10 lists "dashboard, Cycle Trends, and
+  predictions", which could include either. Built conservatively for
+  now (neither shown); each is a one-method addition to PartnerView if
+  wanted. The fertile window is the more sensitive of the two.
+- Should a viewer be able to end a link themselves ("stop viewing")?
+  Currently only the owner can revoke.
 - Since nothing is carried over from v1, the following used to be defined
   by "(v1)" references and now need to be written down here before the
   phase that needs them (Phase 7). (daily_log columns and the cycle
