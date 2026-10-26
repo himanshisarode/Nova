@@ -14,6 +14,18 @@ from streamlit.delta_generator import DeltaGenerator
 CSS_PATH = Path(__file__).parent / "assets" / "nova.css"
 CARD_TONES = ("plain", "blush", "lavender")
 
+# SPEC.md "Medical disclaimer", word for word — tests/test_theme.py checks
+# this against the spec so the two can't drift apart.
+MEDICAL_DISCLAIMER = (
+    "Nova's predictions, trend charts, and irregularity flags are based on "
+    "statistical patterns in your own logged data. This is general "
+    "information, not medical advice, and not a diagnosis. Cycle length, "
+    "ovulation timing, and what counts as 'irregular' can be affected by "
+    "many things this app doesn't know about. If something feels wrong, "
+    "changes suddenly, or worries you, please talk to a doctor or "
+    "gynecologist - don't rely on this app alone."
+)
+
 
 @lru_cache(maxsize=1)
 def _css() -> str:
@@ -39,6 +51,20 @@ def card(name: str, tone: str = "plain") -> DeltaGenerator:
 def eyebrow(text: str) -> None:
     """Small uppercase label above a card's title."""
     st.html(f'<div class="nova-eyebrow">{escape(text)}</div>')
+
+
+def medical_disclaimer() -> None:
+    """The standing disclaimer, inside the card of a prediction or flag.
+
+    Required in the same card as every prediction, fertile-window
+    estimate, and irregularity flag (SPEC.md). Never collapsed.
+    """
+    st.html(f'<div class="nova-disclaimer">🩺 {escape(MEDICAL_DISCLAIMER)}</div>')
+
+
+def footer() -> None:
+    """Page footer carrying the disclaimer. Call at the end of every page."""
+    st.html(f'<footer class="nova-footer">{escape(MEDICAL_DISCLAIMER)}</footer>')
 
 
 def empty_state(

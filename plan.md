@@ -76,6 +76,19 @@ Acceptance:
 - [x] Two different users' data stays separate in the same file
 - [x] Period-start/cycle rule checked against hand-worked dates
 
+### Phase 2.5 — before Phase 3
+- Period rule: raise the gap from 2 to 7 non-bleeding days (one
+  constant in db.py); replace the old 2-day boundary test with the
+  day 1 / days 2–3 / day 4 scenario, plus 6-day (same period) and
+  7-day (new period) boundary tests
+- Medical disclaimer: constant + render helper in theme.py, a test
+  that the code text matches SPEC.md verbatim, and the disclaimer shown
+  on the demo page's prediction card and footer
+Acceptance:
+- [x] Period-rule boundary tests pass (and fail against the old 2-day rule)
+- [x] Disclaimer text in code matches SPEC.md; demo renders it in the
+      prediction card and footer (tests/ui_checks.py, reused in Phase 8)
+
 ### Phase 3 — simulate.py, predict.py, irregularity.py
 - Blocked on SPEC.md Open Questions: Simple/Honest prediction method,
   fertile-window rule, irregularity definition and model
@@ -141,9 +154,13 @@ Acceptance:
 ### Phase 8 — app.py
 - Wires everything: login/signup flow, partner view, all in-scope
   features, consistent card styling throughout
-Acceptance: every in-scope feature in SPEC.md's Features list — 1–7, 9,
-10, 13, 14, 15, 16 — reachable from the UI without editing code (8, 11,
-12 are deferred)
+Acceptance:
+- [ ] Every in-scope feature in SPEC.md's Features list — 1–7, 9, 10,
+      13, 14, 15, 16 — reachable from the UI without editing code (8,
+      11, 12 are deferred)
+- [ ] Medical disclaimer renders next to every prediction, fertile-
+      window estimate, and irregularity flag (partner view included)
+      and in every page's footer — AppTest, per SPEC.md
 
 ### Phase 9 — Dockerfile, docker-compose, README
 - SQLite file must be on a mounted volume, not the container's writable

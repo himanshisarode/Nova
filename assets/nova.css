@@ -137,3 +137,23 @@ p, li, label { line-height: 1.65; }
   color: #B5627A;
   margin-bottom: 0.2rem;
 }
+
+/* Medical disclaimer (SPEC.md): calm, readable, never hidden. */
+.nova-disclaimer {
+  margin-top: 0.5rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 16px;
+  background: var(--nova-lavender-soft);
+  color: #5E5257;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.nova-footer {
+  margin-top: 2rem;
+  padding: 1.25rem 0.5rem 0;
+  border-top: 1px solid rgba(217, 201, 232, 0.6);
+  color: var(--nova-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  text-align: center;
+}

@@ -161,15 +161,34 @@ def test_period_starts_basic():
     assert db.period_starts(bleeding) == [D("2026-01-01"), D("2026-01-29"), D("2026-02-27")]
 
 
-def test_one_day_pause_is_the_same_period():
-    # Jan 1 bleeding, Jan 2 not, Jan 3 bleeding -> only 1 non-bleeding day
-    # before Jan 3, below the 2-day gap: still one period.
-    assert db.period_starts([D("2026-01-01"), D("2026-01-03")]) == [D("2026-01-01")]
+def test_mid_period_pause_is_the_same_period(conn, users):
+    # The exact scenario from spec.md's period rule: bleeding day 1,
+    # nothing logged days 2–3, light flow day 4 -> one period, not two.
+    a, _ = users
+    db.save_log(conn, a, db.LogEntry(D("2026-01-01"), flow="heavy"))
+    db.save_log(conn, a, db.LogEntry(D("2026-01-04"), flow="light"))
+    assert db.get_period_starts(conn, a) == [D("2026-01-01")]
+    assert db.get_cycles(conn, a) == []
 
 
-def test_two_day_gap_starts_a_new_period():
-    # Jan 1 bleeding, Jan 2–3 not, Jan 4 bleeding -> exactly the 2-day gap.
-    assert db.period_starts([D("2026-01-01"), D("2026-01-04")]) == [D("2026-01-01"), D("2026-01-04")]
+def test_six_non_bleeding_days_is_still_the_same_period():
+    # Bleeding Jan 1, non-bleeding Jan 2–7 (6 days), bleeding Jan 8.
+    assert db.period_starts([D("2026-01-01"), D("2026-01-08")]) == [D("2026-01-01")]
+
+
+def test_seven_non_bleeding_days_starts_a_new_period():
+    # Bleeding Jan 1, non-bleeding Jan 2–8 (7 days), bleeding Jan 9.
+    assert db.period_starts([D("2026-01-01"), D("2026-01-09")]) == [D("2026-01-01"), D("2026-01-09")]
+
+
+def test_spotting_in_the_gap_counts_as_non_bleeding(conn, users):
+    # Spotting every day Jan 2–8 doesn't bridge the gap: Jan 9 is a new period.
+    a, _ = users
+    db.save_log(conn, a, db.LogEntry(D("2026-01-01"), flow="medium"))
+    for day in range(2, 9):
+        db.save_log(conn, a, db.LogEntry(date(2026, 1, day), flow="spotting"))
+    db.save_log(conn, a, db.LogEntry(D("2026-01-09"), flow="light"))
+    assert db.get_period_starts(conn, a) == [D("2026-01-01"), D("2026-01-09")]
 
 
 def test_cycle_lengths_and_open_cycle_excluded():

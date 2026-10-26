@@ -93,6 +93,28 @@ invite — still built around explainable, statistically honest predictions
   encouraging microcopy — they explain that the app is waiting for more
   data, never read as an error or a cold refusal.
 
+## Medical disclaimer (cross-cutting — applies to the whole app)
+Not tied to any one feature, deferred or built. The exact text, verbatim:
+
+> Nova's predictions, trend charts, and irregularity flags are based on
+> statistical patterns in your own logged data. This is general
+> information, not medical advice, and not a diagnosis. Cycle length,
+> ovulation timing, and what counts as 'irregular' can be affected by
+> many things this app doesn't know about. If something feels wrong,
+> changes suddenly, or worries you, please talk to a doctor or
+> gynecologist - don't rely on this app alone.
+
+- Defined once in code (theme.py) and rendered from there, never
+  retyped per page.
+- Must actually render in the UI — not only in docs or a settings page:
+  - in the same card as every period prediction (Simple and Honest) and
+    fertile-window/ovulation estimate
+  - in the same card as every irregularity flag
+  - in a footer on every page
+  - including the partner's read-only view, which shows predictions
+- Styled to match the Design section (soft, readable, not an alarming
+  red box), but never collapsed or hidden behind a click.
+
 ## Data
 - `users`: id, email (unique), password_hash, display_name, created_at
 - `partner_links`: id, user_id (the inviter, whose data is shared),
@@ -112,8 +134,13 @@ invite — still built around explainable, statistically honest predictions
   daily_log, rebuilt on every write so it never goes stale.
   - A bleeding day is one with light, medium, or heavy flow. Spotting is
     logged but never counts as bleeding.
-  - A period starts on a bleeding day when the 2 days before it were
-    both non-bleeding (unlogged, no flow, or spotting).
+  - Period rule (the single rule — there is no other gap threshold):
+    bleeding days separated by 6 or fewer non-bleeding days belong to
+    the same period. A bleeding day starts a new period only if the 7
+    days before it were all non-bleeding (unlogged, no flow, or
+    spotting). So a period that pauses mid-way — e.g. bleeding day 1,
+    nothing days 2–3, light flow day 4 — is still one period. A side
+    effect: no cycle can be shorter than 8 days.
   - A cycle runs from one period start to the day before the next. The
     current, unfinished cycle isn't a completed cycle and isn't stored.
 - `remedy_log`: id, user_id, date, symptom, remedy (free text or picked
@@ -221,6 +248,18 @@ items stay listed here as a pointer.
       Pad" / "heat_pad") are counted together
 - [ ] Neither Lifestyle-Link Finder nor Remedy Effectiveness ever makes a
       network call — tested the same way the Q&A page is
+- [ ] The medical disclaimer genuinely renders in the app, not just in
+      the docs: a UI test (Streamlit AppTest) runs every page that shows
+      a prediction, fertile-window estimate, or irregularity flag —
+      including the partner view — and asserts the exact disclaimer
+      text is present in the same card as each of them, and in the
+      footer of every page
+- [ ] The disclaimer text in code matches the text in this spec word for
+      word (a test reads spec.md and compares, ignoring line wrapping),
+      so the two can't drift apart
+- [ ] The period rule's boundary is pinned by tests: bleeding day 1,
+      nothing days 2–3, light flow day 4 is one period; 6 non-bleeding
+      days between bleeds is still one period; 7 starts a new one
 - [ ] `pytest tests/` passes
 
 ## Output Files

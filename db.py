@@ -26,9 +26,10 @@ SYMPTOMS: tuple[str, ...] = (
 )
 LIFESTYLE_TAGS: tuple[str, ...] = ("poor_sleep", "high_stress", "travel")
 MOOD_RANGE = (1, 5)
-# A bleeding day starts a new period only if the day before it and the day
-# before that were both non-bleeding (no log, no flow, or spotting).
-PERIOD_GAP_DAYS = 2
+# A bleeding day starts a new period only if the PERIOD_GAP_DAYS days
+# before it were all non-bleeding (no log, no flow, or spotting); shorter
+# pauses are the same period (spec.md Data, "Period rule").
+PERIOD_GAP_DAYS = 7
 
 
 def _sql_list(values: tuple[str, ...]) -> str:

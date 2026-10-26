@@ -9,7 +9,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from theme import apply_theme, card, empty_state, eyebrow
+from theme import apply_theme, card, empty_state, eyebrow, footer, medical_disclaimer
 
 st.set_page_config(page_title="Nova", page_icon="🌙", layout="centered")
 apply_theme()
@@ -45,6 +45,7 @@ with card("glance"):
         "Predictions show a range, not a single date — that range is Nova "
         "being honest about how much it can know so far."
     )
+    medical_disclaimer()
 
 # --- Daily log ---------------------------------------------------------------
 with card("log"):
@@ -137,3 +138,5 @@ with card("alerts"):
     st.success("Entry saved — thank you for checking in. 🌿")
     st.warning("Your last log was 5 days ago. Whenever you're ready, we're here.")
     st.error("Something went wrong saving that — your entry is still here, try again?")
+
+footer()

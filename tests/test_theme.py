@@ -45,3 +45,36 @@ def test_empty_state_escapes_text():
     rendered = at.get("html")[0].proto.body
     assert "&lt;b&gt;hi&lt;/b&gt;" in rendered
     assert "2 of 3 so far" in rendered
+
+
+# --- medical disclaimer -------------------------------------------------------
+
+def _spec_disclaimer() -> str:
+    """The blockquote under spec.md's "Medical disclaimer" heading, unwrapped."""
+    spec = (ROOT / "spec.md").read_text(encoding="utf-8")
+    section = spec.split("## Medical disclaimer", 1)[1].split("\n## ", 1)[0]
+    quoted = [line[1:].strip() for line in section.splitlines() if line.startswith(">")]
+    return " ".join(quoted)
+
+
+def test_disclaimer_in_code_matches_spec_word_for_word():
+    from theme import MEDICAL_DISCLAIMER
+
+    assert MEDICAL_DISCLAIMER == _spec_disclaimer()
+
+
+def test_demo_shows_disclaimer_with_its_prediction_and_in_footer():
+    from tests.ui_checks import card_has_disclaimer, footer_has_disclaimer
+
+    at = AppTest.from_file(str(ROOT / "design_demo.py"), default_timeout=30).run()
+    assert card_has_disclaimer(at, "glance")  # the card showing "Next period"
+    assert footer_has_disclaimer(at)
+
+
+def test_disclaimer_check_is_not_trivially_true():
+    # The helper must say "no" for a card that has no disclaimer, or the
+    # check above proves nothing.
+    from tests.ui_checks import card_has_disclaimer
+
+    at = AppTest.from_file(str(ROOT / "design_demo.py"), default_timeout=30).run()
+    assert not card_has_disclaimer(at, "welcome")
