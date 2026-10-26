@@ -176,12 +176,17 @@ Acceptance:
 - Wires everything: login/signup flow, partner view, all in-scope
   features, consistent card styling throughout
 Acceptance:
-- [ ] Every in-scope feature in SPEC.md's Features list — 1–7, 9, 10,
+- [x] Every in-scope feature in SPEC.md's Features list — 1–7, 9, 10,
       13, 14, 15, 16 — reachable from the UI without editing code (8,
-      11, 12 are deferred)
-- [ ] Medical disclaimer renders next to every prediction, fertile-
+      11, 12 are deferred). Feature 14's page exists but shows a
+      "being written" state until the Q&A wording is approved.
+- [x] Medical disclaimer renders next to every prediction, fertile-
       window estimate, and irregularity flag (partner view included)
-      and in every page's footer — AppTest, per SPEC.md
+      and in every page's footer — AppTest, per SPEC.md (verified the
+      test fails if a card's disclaimer is removed)
+Found while checking the running app (see SPEC.md Open Questions):
+- With varied cycles the fertile window becomes very wide
+- The "any day" tag rule leaves Lifestyle-Link short of untagged cycles
 
 ### Phase 9 — Dockerfile, docker-compose, README
 - SQLite file must be on a mounted volume, not the container's writable

@@ -358,7 +358,7 @@ review on its own), lifestyle_link.py, remedy.py, .streamlit/config.toml,
 assets/ (custom CSS), static/fonts/ (self-hosted Quicksand + its OFL
 license), tests/test_db.py, tests/test_auth.py, tests/test_partner.py,
 tests/test_predict.py, tests/test_simulate.py, tests/test_irregularity.py,
-tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/test_local_stats.py, tests/conftest.py (no_network fixture), tests/ui_checks.py (shared AppTest helpers for the
+tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/test_local_stats.py, tests/test_app.py, tests/conftest.py (no_network fixture), tests/ui_checks.py (shared AppTest helpers for the
 disclaimer checks), tests/test_qna.py,
 tests/test_lifestyle_link.py, tests/test_remedy.py, requirements.txt,
 Dockerfile, docker-compose.yml, README.md
@@ -378,6 +378,20 @@ Dockerfile, docker-compose.yml, README.md
   wanted. The fertile window is the more sensitive of the two.
 - Should a viewer be able to end a link themselves ("stop viewing")?
   Currently only the owner can revoke.
+- Fertile window with varied cycles: the method (as approved) spans the
+  whole Honest range, so for cycles of 20–35 days the window can cover
+  ~4 weeks and start on the period's first day. That's honest, but
+  nearly useless as shown. Option: above ~10 days wide, say plainly
+  that the cycles vary too much to narrow it down, instead of a date
+  span. Not changed yet.
+- Lifestyle-Link "any day" rule (Q4): a tag logged even occasionally
+  marks almost every cycle as tagged — at 2–3 stress days a month,
+  roughly 9 in 10 cycles count as "high stress" — so the "without" group
+  rarely reaches 3 and the feature seldom gives a result. Options: a
+  cycle counts as tagged only above some share of its days, or compare
+  the share of tagged days against cycle length instead of two groups.
+  The fixed test file only pins check_lifestyle_link(), not how cycles
+  get their tags, so either option leaves it untouched. Not changed yet.
 - Since nothing is carried over from v1, the following used to be defined
   by "(v1)" references and now need to be written down here before the
   phase that needs them (Phase 7). (daily_log columns and the cycle

@@ -34,9 +34,13 @@ def _style(fig: go.Figure, y_title: str | None = None) -> go.Figure:
     return fig
 
 
-def cycle_length_chart(assessments: list[irregularity.CycleAssessment]) -> go.Figure | None:
-    """Bars per completed cycle; irregular ones in lavender; a soft band
-    for "within 7 days of your usual" (the median of all cycles shown)."""
+def cycle_length_chart(
+    assessments: list[irregularity.CycleAssessment], show_flags: bool = True
+) -> go.Figure | None:
+    """Bars per completed cycle; a soft band for "within 7 days of your
+    usual" (the median of all cycles shown). With show_flags, irregular
+    cycles are lavender and their reason is in the hover text; without it
+    (the partner view, which mustn't see flags) every bar looks the same."""
     if not assessments:
         return None
     labels = [a.start.strftime("%d %b %Y") for a in assessments]
@@ -44,10 +48,17 @@ def cycle_length_chart(assessments: list[irregularity.CycleAssessment]) -> go.Fi
     fig = go.Figure(go.Bar(
         x=labels,
         y=lengths,
-        marker=dict(color=[LAVENDER if a.irregular else BLUSH for a in assessments],
-                    cornerradius=8),
-        customdata=[a.reason or "within your usual pattern" for a in assessments],
-        hovertemplate="%{x}<br><b>%{y} days</b><br>%{customdata}<extra></extra>",
+        marker=dict(
+            color=[LAVENDER if show_flags and a.irregular else BLUSH for a in assessments],
+            cornerradius=8,
+        ),
+        hovertemplate=(
+            "%{x}<br><b>%{y} days</b><br>%{customdata}<extra></extra>" if show_flags
+            else "%{x}<br><b>%{y} days</b><extra></extra>"
+        ),
+        customdata=(
+            [a.reason or "within your usual pattern" for a in assessments] if show_flags else None
+        ),
     ))
     usual = median(lengths)
     fig.add_hrect(

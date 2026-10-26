@@ -54,3 +54,11 @@ def test_charts_use_the_nova_font_and_transparent_background():
     fig = charts.cycle_length_chart(assessments([28, 30]))
     assert fig.layout.font.family.startswith("Quicksand")
     assert fig.layout.paper_bgcolor == "rgba(0,0,0,0)"
+
+
+def test_flags_can_be_hidden_for_the_partner_view():
+    fig = charts.cycle_length_chart(assessments([28, 30, 29, 41]), show_flags=False)
+    bar = fig.data[0]
+    assert list(bar.marker.color) == [charts.BLUSH] * 4
+    assert bar.customdata is None
+    assert "longer" not in bar.hovertemplate
