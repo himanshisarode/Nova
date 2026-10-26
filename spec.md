@@ -170,7 +170,11 @@ items stay listed here as a pointer.
    not contraception): ovulation = predicted next start − 14 days;
    window = 5 days before ovulation to 1 day after. In Honest mode it
    spans the earliest to latest ovulation the range allows. Same
-   3-cycle minimum.
+   3-cycle minimum. If recent cycles (the last ≤ 12) vary by more than
+   9 days shortest-to-longest (the lenient end of FIGO 2018's 7–9 day
+   regular spread), no window is shown — it would cover most of the
+   cycle — and the card instead gently suggests talking to a doctor or
+   gynecologist, saying how much the cycles have varied.
 4. Cycle Trends dashboard (per-user, styled per Design above)
 5. Irregularity detection with SHAP explanations (per-user)
    - Flag (a transparent rule): a completed cycle is irregular if it's
@@ -378,12 +382,6 @@ Dockerfile, docker-compose.yml, .dockerignore, README.md
   wanted. The fertile window is the more sensitive of the two.
 - Should a viewer be able to end a link themselves ("stop viewing")?
   Currently only the owner can revoke.
-- Fertile window with varied cycles: the method (as approved) spans the
-  whole Honest range, so for cycles of 20–35 days the window can cover
-  ~4 weeks and start on the period's first day. That's honest, but
-  nearly useless as shown. Option: above ~10 days wide, say plainly
-  that the cycles vary too much to narrow it down, instead of a date
-  span. Not changed yet.
 - Lifestyle-Link "any day" rule (Q4): a tag logged even occasionally
   marks almost every cycle as tagged — at 2–3 stress days a month,
   roughly 9 in 10 cycles count as "high stress" — so the "without" group
@@ -391,7 +389,8 @@ Dockerfile, docker-compose.yml, .dockerignore, README.md
   cycle counts as tagged only above some share of its days, or compare
   the share of tagged days against cycle length instead of two groups.
   The fixed test file only pins check_lifestyle_link(), not how cycles
-  get their tags, so either option leaves it untouched. Not changed yet.
+  get their tags, so either option leaves it untouched. Parked by
+  decision (2026-10-27): left as-is for now, revisit later.
 - Since nothing is carried over from v1, the following used to be defined
   by "(v1)" references and now need to be written down here before the
   phase that needs them (Phase 7). (daily_log columns and the cycle

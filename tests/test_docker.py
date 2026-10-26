@@ -5,6 +5,7 @@ Static checks always run. The live check (build, two users' data,
 and is reported as skipped — not passed — everywhere else.
 """
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -100,6 +101,12 @@ def _wait_healthy(seconds=180):
         except OSError:
             time.sleep(2)
     raise AssertionError("app never became healthy")
+
+
+def test_docker_check_is_not_silently_skipped_in_ci():
+    # CI sets NOVA_REQUIRE_DOCKER so a missing Docker fails loudly there.
+    if os.environ.get("NOVA_REQUIRE_DOCKER"):
+        assert DOCKER is not None, "NOVA_REQUIRE_DOCKER is set but docker isn't installed"
 
 
 @pytest.mark.skipif(DOCKER is None, reason="Docker is not installed on this machine")

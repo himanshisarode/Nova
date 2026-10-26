@@ -1,0 +1,23 @@
+# Full test suite on Linux, including the Docker persistence check
+# (tests/test_docker.py), which can't run on the Windows dev machine.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NOVA_REQUIRE_DOCKER: "1"  # the Docker check must run here, not skip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: docker compose version
+      - run: pytest tests/ -rs

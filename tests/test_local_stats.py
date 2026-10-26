@@ -212,3 +212,13 @@ def test_modules_import_nothing_network_capable(module):
             imported.add((node.module or "").split(".")[0])
     banned = {"socket", "urllib", "http", "requests", "httpx", "aiohttp", "anthropic", "openai"}
     assert not imported & banned
+
+
+def test_no_network_fixture_blocks_raw_sockets_to_other_hosts(no_network):
+    # Control for the lower-level path too (not just create_connection).
+    s = socket.socket()
+    try:
+        with pytest.raises(AssertionError, match="network access attempted"):
+            s.connect(("93.184.215.14", 80))
+    finally:
+        s.close()

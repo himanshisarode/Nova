@@ -65,6 +65,26 @@ def _recent(lengths: list[int]) -> list[int]:
     return list(lengths)[-MAX_CYCLES_USED:]
 
 
+# FIGO 2018 counts a shortest-to-longest spread of up to 7–9 days as
+# regular; using the lenient end, only clearly-varying cycles trigger this.
+MAX_NORMAL_VARIATION_DAYS = 9
+
+
+def cycle_variation(lengths: list[int]) -> int:
+    """Longest minus shortest of the cycles predictions use (last 12)."""
+    used = _recent(lengths)
+    return max(used) - min(used) if used else 0
+
+
+def varies_a_lot(lengths: list[int]) -> bool:
+    """True when recent cycles vary by more than MAX_NORMAL_VARIATION_DAYS.
+
+    The fertile window then spans most of the cycle and stops being useful,
+    so the app suggests talking to a doctor instead of showing dates.
+    """
+    return len(lengths) >= MIN_CYCLES and cycle_variation(lengths) > MAX_NORMAL_VARIATION_DAYS
+
+
 def length_interval(lengths: list[int], level: float = INTERVAL_LEVEL) -> tuple[float, float]:
     """Prediction interval for the next cycle length (continuous, unrounded)."""
     n = len(lengths)

@@ -120,7 +120,7 @@ FEATURE_CARDS = {
     6: ("Settings", "doctor"),
     7: ("Settings", "my-data"),
     10: ("Settings", "sharing"),
-    14: ("Did You Know?", "qna-intro"),
+    14: ("Did You Know?", "qna"),
     15: ("Insights", "links"),
     16: ("Insights", "remedies"),
 }
@@ -198,10 +198,10 @@ def test_today_form_prefills_an_existing_day(db_path, conn):
     assert at.select_slider(key=f"mood_{k}").value == 4
 
 
-def test_qna_page_says_content_is_coming(db_path, conn):
-    # Until the wording is approved, qna_content.QNA is empty.
+def test_qna_page_shows_the_entries(db_path, conn):
+    # Full content checks (and the no-network check) are in test_qna.py.
     at = goto(app(seed(conn)), "Did You Know?")
-    assert any("These are being written" in h.proto.body for h in at.get("html"))
+    assert len(at.expander) == 10
 
 
 # --- partner flow through the UI ----------------------------------------------
@@ -252,3 +252,39 @@ def test_delete_needs_the_right_email_then_removes_everything(db_path, conn):
     assert db.get_logs(conn, user.id) == []
     assert "have been deleted" in at.success[0].value
     assert [t.label for t in at.tabs] == ["Log in", "Create account"]
+
+
+# --- fertile window: varied cycles get the doctor message --------------------
+
+def seed_lengths(conn, lengths, email="lee@example.com"):
+    """A user with exactly these completed cycles; the open one began 10 days ago."""
+    user = auth.signup(conn, email, "password-lee-1", "Lee")
+    start = date.today() - timedelta(days=10 + sum(lengths))
+    for length in [*lengths, None]:
+        for k in range(4):
+            db.save_log(conn, user.id, db.LogEntry(start + timedelta(days=k), flow="medium"))
+        if length:
+            start += timedelta(days=length)
+    return user
+
+
+def _fertile_text(at) -> str:
+    fertile = card(at, "fertile")
+    from tests.ui_checks import _walk
+    return "\n".join(getattr(el, "value", "") or "" for el in _walk(fertile) if el.type in ("markdown", "caption"))
+
+
+def test_varied_cycles_suggest_a_doctor_instead_of_a_window(db_path, conn):
+    at = goto(app(seed_lengths(conn, [28, 20, 35, 27])), "Home")  # spread 15 days
+    text = _fertile_text(at)
+    assert "Worth a chat with a doctor" in text
+    assert "ranged from 20 to 35 days" in text and "spread of 15 days" in text
+    assert " – " not in text.split("\n")[0]  # no date range heading
+    assert card_has_disclaimer(at, "fertile")
+
+
+def test_steady_cycles_still_get_a_window(db_path, conn):
+    at = goto(app(seed_lengths(conn, [28, 30, 29, 28])), "Home")  # spread 2 days
+    text = _fertile_text(at)
+    assert "Worth a chat with a doctor" not in text
+    assert "Never rely on this to prevent pregnancy." in text

@@ -114,3 +114,26 @@ def test_interval_method_is_calibrated_on_clean_data():
     # unrounded interval should cover close to its nominal 90%.
     continuous, _ = _coverage(irregular_rate=0.0)
     assert 0.88 <= continuous <= 0.93
+
+
+# --- "varies a lot" -> see a doctor instead of a fertile window -----------------
+
+@pytest.mark.parametrize("lengths, spread, varies", [
+    ([28, 30, 29], 2, False),
+    ([25, 34, 30], 9, False),   # exactly 9: still within FIGO's 7–9 day spread
+    ([25, 35, 30], 10, True),   # 10: over it
+    ([20, 35, 28], 15, True),
+])
+def test_varies_a_lot_by_hand(lengths, spread, varies):
+    assert predict.cycle_variation(lengths) == spread
+    assert predict.varies_a_lot(lengths) is varies
+
+
+def test_variation_needs_three_cycles():
+    assert not predict.varies_a_lot([20, 40])
+
+
+def test_variation_uses_only_the_last_twelve_cycles():
+    # An old 50-day cycle followed by twelve steady ones doesn't count.
+    assert predict.cycle_variation([50] + [28, 29] * 6) == 1
+    assert not predict.varies_a_lot([50] + [28, 29] * 6)

@@ -132,7 +132,7 @@ See SPEC.md "Not yet built".
 - charts.py, export.py: full per-user implementations, styled per the
   Phase 0 design system (export contents: SPEC.md Features 6–7)
 - Q&A wording is reviewed separately before it goes into
-  qna_content.py (drafted 2026-10-27, awaiting review)
+  qna_content.py (drafted and approved 2026-10-27)
 - qna_content.py: the 10 Q&A pairs as a static data structure (list of
   {question, answer} — keep content separate from whatever renders it, so
   the actual wording is easy to review in a diff on its own, not buried
@@ -143,10 +143,9 @@ Acceptance:
 - [x] Delete-all: raw-file grep finds nothing afterwards (and the
       control without secure_delete does find it)
 - [x] Charts plot hand-checked values; empty data gives no chart
-- [ ] qna page renders all 10 entries, makes zero network calls (this
+- [x] qna page renders all 10 entries, makes zero network calls (this
       one's pure static content, not an AI feature, worth a test
-      asserting no request is ever sent from this page) — after the
-      wording is approved
+      asserting no request is ever sent from this page)
 
 ### Phase 7.5 — lifestyle_link.py, remedy.py
 Both are local stats, not API calls — deliberate, see SPEC.md's
@@ -184,21 +183,23 @@ Acceptance:
       window estimate, and irregularity flag (partner view included)
       and in every page's footer — AppTest, per SPEC.md (verified the
       test fails if a card's disclaimer is removed)
-Found while checking the running app (see SPEC.md Open Questions):
-- With varied cycles the fertile window becomes very wide
+Found while checking the running app:
+- With varied cycles the fertile window became very wide → resolved:
+  above a 9-day spread the card suggests seeing a doctor instead
 - The "any day" tag rule leaves Lifestyle-Link short of untagged cycles
+  → parked for now (SPEC.md Open Questions)
 
 ### Phase 9 — Dockerfile, docker-compose, README
 - SQLite file must be on a mounted volume, not the container's writable
   layer — tested with multiple users' data surviving a full container
   restart, not just one user's
 Acceptance:
-- [ ] `docker compose up` serves the app with no errors — NOT YET
-      VERIFIED: Docker isn't installed on the dev machine. Checked so
-      far: every requirement resolves to a prebuilt Linux/py3.14 wheel
-- [ ] Two users' data both survive `docker compose down && up` — test
-      written (tests/test_docker.py), skipped until run where Docker is
-      installed; static checks confirm the DB is on the named volume
+- [ ] `docker compose up` serves the app with no errors
+- [ ] Two users' data both survive `docker compose down && up`
+  Docker isn't installed on the dev machine, so both are verified in
+  GitHub Actions instead (.github/workflows/tests.yml): the full suite
+  runs on Linux on every push, with NOVA_REQUIRE_DOCKER set so the
+  persistence test fails rather than skips if Docker were missing.
 - [x] Full `pytest tests/` passes — final gate before calling v2 done
       (with the Docker live check skipped, see above)
 

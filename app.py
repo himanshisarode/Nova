@@ -193,6 +193,16 @@ def page_home(conn, user: auth.User, today: date) -> None:
                 body="The fertile-window estimate appears alongside your period prediction.",
                 have=len(lengths), need=predict.MIN_CYCLES,
             )
+        elif predict.varies_a_lot(lengths):
+            recent = lengths[-predict.MAX_CYCLES_USED:]
+            st.markdown("### Worth a chat with a doctor")
+            st.markdown(
+                f"Your recent cycles have ranged from {min(recent)} to {max(recent)} days — "
+                f"a spread of {predict.cycle_variation(lengths)} days. With that much variation, "
+                "a fertile-window estimate would cover most of your cycle, so Nova won't show one. "
+                "Cycles that vary this much are worth mentioning to a doctor or gynecologist: "
+                "often there's a simple explanation, and they can help you find it."
+            )
         else:
             p = (predict.honest_prediction if mode == "Honest" else predict.simple_prediction)(lengths, last)
             w = predict.fertile_window(p)
