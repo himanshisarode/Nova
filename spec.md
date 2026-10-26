@@ -155,11 +155,37 @@ items stay listed here as a pointer.
 
 1. Daily logging form — flow, symptoms, mood, optional lifestyle tags,
    per user
-2. Period prediction — Simple and Honest modes, interval-based, per user
+2. Period prediction — Simple and Honest modes, per user. Both use the
+   most recent (up to 12) completed cycles, all of them, irregular ones
+   included, and need at least 3 completed cycles; below that, a warm
+   "not enough data yet" with progress — never a default like 28 days.
+   - Simple: one date — last period start + mean cycle length (rounded
+     half up).
+   - Honest: a date range — a 90% prediction interval for the next
+     cycle's length, mean ± t(0.95, n−1) · sd · √(1 + 1/n), rounded
+     outward to whole days and never narrower than ±1 day.
+   - Once today is past the predicted date/range, show a gentle "later
+     than your usual range" message instead of a stale prediction.
 3. Fertile window / ovulation estimate (clearly labeled as an estimate,
-   not contraception)
+   not contraception): ovulation = predicted next start − 14 days;
+   window = 5 days before ovulation to 1 day after. In Honest mode it
+   spans the earliest to latest ovulation the range allows. Same
+   3-cycle minimum.
 4. Cycle Trends dashboard (per-user, styled per Design above)
 5. Irregularity detection with SHAP explanations (per-user)
+   - Flag (a transparent rule): a completed cycle is irregular if it's
+     outside 24–38 days (FIGO 2018 normal frequency), or more than 7
+     days from the median of the user's previous cycles (needs ≥ 3
+     earlier cycles; uses up to the last 12). Each flag says why in
+     plain words, e.g. "41 days — 12 days longer than your usual 29".
+   - Explanation: a per-user random forest on per-cycle factors (share
+     of non-bleeding days with each lifestyle tag, average mood, share
+     of days with symptoms — bleeding days excluded so cycle length
+     can't masquerade as a factor), explained with SHAP. Only shown
+     with ≥ 3 flagged and ≥ 3 unflagged cycles, and a factor is only
+     named if flagged and unflagged cycles also differ on it
+     significantly (permutation test, α = 0.05 Bonferroni-split across
+     the factors). Worded as an association, never a cause.
 6. Doctor-shareable export, CSV/PDF (per-user)
 7. Export-my-data / delete-all-my-data (per-user)
 8. *Explain My Trend — deferred, see "Not yet built"*
@@ -257,6 +283,16 @@ items stay listed here as a pointer.
 - [ ] The disclaimer text in code matches the text in this spec word for
       word (a test reads spec.md and compares, ignoring line wrapping),
       so the two can't drift apart
+- [ ] Honest prediction: on simulated people with 15% irregular cycles,
+      the shown date range contains the actual next period start 85–95%
+      of the time; on clean simulated data the unrounded interval is
+      calibrated (88–93% for a nominal 90%)
+- [ ] Irregularity: on simulated people, at least 80% of planted
+      irregular cycles are flagged, and at most 10% of normal cycles
+- [ ] Irregularity explanations find a planted factor (≥ 80% of
+      simulated people with a planted stress link) and stay quiet
+      without one (≤ 15% of simulated people with no planted pattern
+      get any explanation)
 - [ ] The period rule's boundary is pinned by tests: bleeding day 1,
       nothing days 2–3, light flow day 4 is one period; 6 non-bleeding
       days between bleeds is still one period; 7 starts a new one
@@ -270,7 +306,9 @@ static data, kept separate from display logic so the content is easy to
 review on its own), lifestyle_link.py, remedy.py, .streamlit/config.toml,
 assets/ (custom CSS), static/fonts/ (self-hosted Quicksand + its OFL
 license), tests/test_db.py, tests/test_auth.py, tests/test_partner.py,
-tests/test_predict.py, tests/test_simulate.py, tests/test_qna.py,
+tests/test_predict.py, tests/test_simulate.py, tests/test_irregularity.py,
+tests/test_theme.py, tests/ui_checks.py (shared AppTest helpers for the
+disclaimer checks), tests/test_qna.py,
 tests/test_lifestyle_link.py, tests/test_remedy.py, requirements.txt,
 Dockerfile, docker-compose.yml, README.md
 
@@ -284,17 +322,14 @@ Dockerfile, docker-compose.yml, README.md
   revoked_at either way, so this is only a display decision.)
 - Since nothing is carried over from v1, the following used to be defined
   by "(v1)" references and now need to be written down here before the
-  phase that needs them (Phase 3/7). (daily_log columns and the cycle
-  rule were settled for Phase 2 — see Data.)
-  - Simple vs Honest prediction: what each mode computes, minimum cycles
-    before predicting, interval level
-  - fertile window / ovulation estimate rule
-  - irregularity: what "irregular" means for labelling, which model,
-    which features SHAP explains
+  phase that needs them (Phase 7). (daily_log columns and the cycle
+  rule were settled for Phase 2, prediction/fertile window/irregularity
+  for Phase 3 — see Data and Features.)
   - export contents (which fields go in the CSV/PDF)
   - "v1's acceptance criteria still apply" — those criteria aren't in
-    this file; the ones that still matter need restating here (Plan
-    already has the 90% interval coverage / 0.80 recall numbers)
+    this file; the ones that still matter need restating here (the
+    prediction and irregularity ones now live in the acceptance list
+    below Features)
 
 ## Not yet built
 Deferred from v2's original scope to keep the two-week build realistic.

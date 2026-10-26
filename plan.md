@@ -90,10 +90,17 @@ Acceptance:
       prediction card and footer (tests/ui_checks.py, reused in Phase 8)
 
 ### Phase 3 — simulate.py, predict.py, irregularity.py
-- Blocked on SPEC.md Open Questions: Simple/Honest prediction method,
-  fertile-window rule, irregularity definition and model
-- Acceptance numbers: 90% prediction intervals achieve ~90% coverage on
-  simulated cycles; 0.80 recall on synthetic irregular cycles
+- Methods as approved, recorded in SPEC.md Features 2, 3, 5
+- Additions made during the build (beyond the approved proposal): SHAP
+  factors are gated by a permutation test (Bonferroni), and per-cycle
+  factors skip bleeding days — without these, simulated people with no
+  real pattern were given a confident-sounding explanation
+Acceptance (measured on simulated people):
+- [x] Shown range covers 89.7% with 15% irregular cycles (target
+      85–95%); unrounded interval 90.6% on clean data
+- [x] Irregularity recall 96.9% (target ≥ 80%), false-flag rate 3.2%
+      (guard ≤ 10%)
+- [x] Planted stress link found; no-pattern control rarely explained
 
 ### Phase 4 — partner.py
 - Invite-code generation, linking, read-only access enforced at the
