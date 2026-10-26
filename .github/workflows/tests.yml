@@ -20,4 +20,7 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: docker compose version
-      - run: pytest tests/ -rs
+      - run: pytest tests/ -rs --junitxml=pytest-report.xml
+      - name: Annotate failing tests
+        if: failure()
+        run: python .github/scripts/annotate_failures.py pytest-report.xml
