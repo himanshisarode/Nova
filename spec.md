@@ -208,7 +208,7 @@ items stay listed here as a pointer.
    - Export: a ZIP of account.json (email, display name, created date),
      daily_log.csv (every field), cycles.csv, partner_links.csv (role,
      other person's display name, status, dates) — never the password
-     hash or invite codes. remedy_log.csv joins once Phase 7.5 adds it.
+     hash or invite codes — plus remedy_log.csv.
    - Delete: one action removes everything — logs, symptoms, cycles,
      partner links in both directions, and the account. The user must
      type their account email to confirm (checked in db.delete_account,
@@ -268,7 +268,9 @@ items stay listed here as a pointer.
     significant link ("cycles with high stress logged ran 2.3 days longer
     on average"), or an honest "no significant link found yet" if the
     pattern doesn't hold up. Pure local computation, zero API calls.
-    Function contract is pinned by tests/test_lifestyle_link.py.
+    Function contract is pinned by tests/test_lifestyle_link.py. If both
+    groups have no spread at all (every cycle the same length), the
+    t-test is undefined and the result is "no significant link".
 16. Remedy Effectiveness Tracker — when logging a symptom, optionally
     also log what you tried for it and a 1–5 relief rating
     (`remedy_log`, remedy text normalized as in Data). Once a (symptom,
@@ -279,7 +281,9 @@ items stay listed here as a pointer.
     misleadingly confident number. Ranked remedies for the same symptom
     are ordered by average rating, highest first. Pure local computation
     (average + count), zero API calls. Function contract is pinned by
-    tests/test_remedy.py.
+    tests/test_remedy.py. Normalizing also collapses runs of whitespace
+    into one underscore ("Heat   Pad" → heat_pad). Pairs without enough
+    data carry no average at all, and are listed after ranked ones.
 
 ## Acceptance Criteria
 - [ ] Two accounts can be created and linked via invite code; the invited
@@ -354,7 +358,7 @@ review on its own), lifestyle_link.py, remedy.py, .streamlit/config.toml,
 assets/ (custom CSS), static/fonts/ (self-hosted Quicksand + its OFL
 license), tests/test_db.py, tests/test_auth.py, tests/test_partner.py,
 tests/test_predict.py, tests/test_simulate.py, tests/test_irregularity.py,
-tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/ui_checks.py (shared AppTest helpers for the
+tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/test_local_stats.py, tests/conftest.py (no_network fixture), tests/ui_checks.py (shared AppTest helpers for the
 disclaimer checks), tests/test_qna.py,
 tests/test_lifestyle_link.py, tests/test_remedy.py, requirements.txt,
 Dockerfile, docker-compose.yml, README.md

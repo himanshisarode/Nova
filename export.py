@@ -309,6 +309,11 @@ def export_my_data(conn: sqlite3.Connection, user_id: int) -> bytes:
             ["start", "end", "length_days"],
             [[c.start.isoformat(), c.end.isoformat(), c.length] for c in db.get_cycles(conn, user_id)],
         ),
+        "remedy_log.csv": _csv(
+            ["date", "symptom", "remedy", "relief_rating"],
+            [[r.date.isoformat(), r.symptom, r.remedy, r.relief_rating]
+             for r in db.get_remedies(conn, user_id)],
+        ),
         "partner_links.csv": _csv(
             ["role", "other_person", "status", "created_at", "accepted_at", "revoked_at"],
             [

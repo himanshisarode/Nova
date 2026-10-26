@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import auth
+from remedy import normalize_remedy
 
 DEFAULT_DB_PATH = Path(__file__).parent / "data" / "nova.db"
 
@@ -65,6 +66,14 @@ CREATE TABLE IF NOT EXISTS partner_links (
     accepted_at     TEXT,
     revoked_at      TEXT,
     CHECK (partner_user_id IS NULL OR partner_user_id != user_id)
+);
+CREATE TABLE IF NOT EXISTS remedy_log (
+    id            INTEGER PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date          TEXT NOT NULL CHECK (date(date) IS date),
+    symptom       TEXT NOT NULL CHECK (symptom IN ({_sql_list(SYMPTOMS)})),
+    remedy        TEXT NOT NULL CHECK (remedy != '' AND remedy = lower(trim(remedy))),
+    relief_rating INTEGER NOT NULL CHECK (relief_rating BETWEEN 1 AND 5)
 );
 CREATE TABLE IF NOT EXISTS cycle (
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -153,6 +162,7 @@ def delete_account(conn: sqlite3.Connection, user_id: int, confirm_email: str) -
         conn.execute("DELETE FROM daily_symptom WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM daily_log WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM cycle WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM remedy_log WHERE user_id = ?", (user_id,))
         conn.execute(
             "DELETE FROM partner_links WHERE user_id = ? OR partner_user_id = ?",
             (user_id, user_id),
@@ -302,3 +312,55 @@ def get_cycles(conn: sqlite3.Connection, user_id: int) -> list[Cycle]:
 def get_period_starts(conn: sqlite3.Connection, user_id: int) -> list[date]:
     """Every period start for a user, including the current (open) cycle's."""
     return period_starts(_bleeding_days(conn, user_id))
+
+
+# --- remedies -----------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RemedyEntry:
+    date: date
+    symptom: str
+    remedy: str  # normalized: lowercase, underscores for spaces
+    relief_rating: int
+
+
+def add_remedy(
+    conn: sqlite3.Connection, user_id: int, day: date, symptom: str, remedy: str, relief_rating: int
+) -> RemedyEntry:
+    """Log what was tried for a symptom and how much it helped (1–5)."""
+    if symptom not in SYMPTOMS:
+        raise ValueError(f"unknown symptom {symptom!r}; allowed: {SYMPTOMS}")
+    if not 1 <= relief_rating <= 5:
+        raise ValueError(f"relief_rating must be 1–5, got {relief_rating}")
+    entry = RemedyEntry(day, symptom, normalize_remedy(remedy), relief_rating)
+    with conn:
+        conn.execute(
+            "INSERT INTO remedy_log (user_id, date, symptom, remedy, relief_rating)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (user_id, day.isoformat(), entry.symptom, entry.remedy, entry.relief_rating),
+        )
+    return entry
+
+
+def get_remedies(conn: sqlite3.Connection, user_id: int) -> list[RemedyEntry]:
+    """A user's remedy log, oldest first."""
+    return [
+        RemedyEntry(date.fromisoformat(d), symptom, remedy, rating)
+        for d, symptom, remedy, rating in conn.execute(
+            "SELECT date, symptom, remedy, relief_rating FROM remedy_log"
+            " WHERE user_id = ? ORDER BY date, id",
+            (user_id,),
+        )
+    ]
+
+
+def past_remedies(conn: sqlite3.Connection, user_id: int, symptom: str | None = None) -> list[str]:
+    """Remedies this user has logged before (for "pick from past entries"),
+    most used first."""
+    query = "SELECT remedy FROM remedy_log WHERE user_id = ?"
+    params: list = [user_id]
+    if symptom is not None:
+        query += " AND symptom = ?"
+        params.append(symptom)
+    query += " GROUP BY remedy ORDER BY COUNT(*) DESC, remedy"
+    return [row[0] for row in conn.execute(query, params)]

@@ -163,12 +163,14 @@ regenerate or rewrite them.
   (symptom, remedy) pair; 3+ instances = "ranked" (even if alone),
   below that = "not enough data"
 Acceptance:
-- [ ] tests/test_lifestyle_link.py passes unchanged (finds the planted
+- [x] tests/test_lifestyle_link.py passes unchanged (finds the planted
       link, doesn't flag the negative control, refuses below threshold)
-- [ ] tests/test_remedy.py passes unchanged
-- [ ] Remedy normalization tested ("Heat Pad" and "heat_pad" pool)
-- [ ] Both confirmed to make zero network calls (same test pattern as
-      the qna page)
+- [x] tests/test_remedy.py passes unchanged (git confirms both files are
+      byte-identical to the first commit)
+- [x] Remedy normalization tested ("Heat Pad" and "heat_pad" pool)
+- [x] Both confirmed to make zero network calls (sockets blocked during
+      the calls, with a control proving the block works; neither module
+      imports anything network-capable)
 
 ### Phase 8 — app.py
 - Wires everything: login/signup flow, partner view, all in-scope

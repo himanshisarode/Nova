@@ -208,7 +208,9 @@ def test_export_my_data_contains_everything(conn, users):
     a, b = users
     link = partner.redeem_invite(conn, b, partner.create_invite(conn, a).invite_code)
     files = _zip(conn, a)
-    assert set(files) == {"account.json", "daily_log.csv", "cycles.csv", "partner_links.csv"}
+    assert set(files) == {
+        "account.json", "daily_log.csv", "cycles.csv", "partner_links.csv", "remedy_log.csv",
+    }
 
     account = json.loads(files["account.json"])
     assert account == {"email": A_EMAIL, "display_name": A_NAME,
