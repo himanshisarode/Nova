@@ -67,12 +67,14 @@ Acceptance:
 - [x] tests/test_auth.py covers signup/login/bad-password paths
 
 ### Phase 2 — db.py, multi-user
-- Blocked on SPEC.md Open Questions: daily_log columns and the cycle
-  derivation rule need writing down first
 - daily_log (primary key (user_id, date)), daily_symptom (user_id, date,
   symptom), cycle — all CRUD functions take a user_id
-Acceptance: data persists across reopening the DB file, and two
-different users' data stays separate in the same file.
+- db.connect() owns connection setup (file location, foreign keys on,
+  schema creation including auth's users table)
+Acceptance:
+- [x] Data persists across reopening the DB file
+- [x] Two different users' data stays separate in the same file
+- [x] Period-start/cycle rule checked against hand-worked dates
 
 ### Phase 3 — simulate.py, predict.py, irregularity.py
 - Blocked on SPEC.md Open Questions: Simple/Honest prediction method,

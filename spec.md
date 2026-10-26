@@ -99,13 +99,23 @@ invite — still built around explainable, statistically honest predictions
   partner_user_id (the invitee/viewer; null until the code is redeemed),
   invite_code (unique), status (pending/accepted/revoked/expired),
   created_at, expires_at (created_at + 48h), accepted_at, revoked_at
-- `daily_log`: user_id, date, + the daily fields from Feature 1 (exact
-  columns: see Open Questions). Primary key is (user_id, date).
+- `daily_log`: user_id, date, flow (none/spotting/light/medium/heavy, or
+  not recorded), mood (1–5, optional), poor_sleep, high_stress, travel
+  (each yes/no). Primary key is (user_id, date). Any past day can be
+  logged; logging a date again replaces that day's entry entirely.
 - `daily_symptom`: user_id, date, symptom — one row per symptom logged on
   a day, (user_id, date) referencing daily_log. Primary key is
-  (user_id, date, symptom).
-- `cycle`: user_id + cycle fields, derived from daily_log (derivation
-  rule: see Open Questions)
+  (user_id, date, symptom). Fixed symptom list: cramps, headache,
+  bloating, fatigue, acne, breast_tenderness, back_pain, nausea,
+  mood_swings, insomnia.
+- `cycle`: user_id, start_date, end_date, length — derived from
+  daily_log, rebuilt on every write so it never goes stale.
+  - A bleeding day is one with light, medium, or heavy flow. Spotting is
+    logged but never counts as bleeding.
+  - A period starts on a bleeding day when the 2 days before it were
+    both non-bleeding (unlogged, no flow, or spotting).
+  - A cycle runs from one period start to the day before the next. The
+    current, unfinished cycle isn't a completed cycle and isn't stored.
 - `remedy_log`: id, user_id, date, symptom, remedy (free text or picked
   from past entries), relief_rating (1–5) — optional, logged alongside a
   symptom on the daily form. Remedy text is normalized before storage and
@@ -235,10 +245,8 @@ Dockerfile, docker-compose.yml, README.md
   revoked_at either way, so this is only a display decision.)
 - Since nothing is carried over from v1, the following used to be defined
   by "(v1)" references and now need to be written down here before the
-  phase that needs them (Phase 2/3/7):
-  - daily_log columns: flow levels, mood scale, the fixed symptom list,
-    how lifestyle tags are stored
-  - the rule for deriving a cycle (what counts as a period start)
+  phase that needs them (Phase 3/7). (daily_log columns and the cycle
+  rule were settled for Phase 2 — see Data.)
   - Simple vs Honest prediction: what each mode computes, minimum cycles
     before predicting, interval level
   - fertile window / ovulation estimate rule
