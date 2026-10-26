@@ -186,8 +186,34 @@ items stay listed here as a pointer.
      named if flagged and unflagged cycles also differ on it
      significantly (permutation test, α = 0.05 Bonferroni-split across
      the factors). Worded as an association, never a cause.
-6. Doctor-shareable export, CSV/PDF (per-user)
+6. Doctor-shareable export, CSV/PDF (per-user). A cycle-level summary,
+   not a diary. Range: last 3/6/12 months (default 12) or all time,
+   by cycle start; irregularity is still judged against full history.
+   - PDF: display name, date range, generated date; summary (cycle
+     count, average/median, shortest/longest, typical period length,
+     irregular count, current Honest prediction — or, once overdue,
+     "was expected between … ; none logged as of …"); cycle-length bar
+     chart (irregular in lavender); per-cycle table (start, length,
+     period days, heaviest flow, irregular + reason); symptom share
+     (cycles with each symptom logged at least once); the medical
+     disclaimer in every page's footer.
+   - CSV: the same per-cycle table (symptoms as `cramps:3; fatigue:2`).
+   - Left out: email, mood, lifestyle tags, remedy log, SHAP
+     explanations, partner details.
+   - The irregularity reason says what happened ("12 days longer than
+     your usual 29", "shorter than the 24–38 day range…"), never why —
+     nothing implying a cause such as stress or sleep, since those
+     factors are deliberately excluded from this export.
 7. Export-my-data / delete-all-my-data (per-user)
+   - Export: a ZIP of account.json (email, display name, created date),
+     daily_log.csv (every field), cycles.csv, partner_links.csv (role,
+     other person's display name, status, dates) — never the password
+     hash or invite codes. remedy_log.csv joins once Phase 7.5 adds it.
+   - Delete: one action removes everything — logs, symptoms, cycles,
+     partner links in both directions, and the account. The user must
+     type their account email to confirm (checked in db.delete_account,
+     not just the UI), then is logged out. SQLite's secure_delete is on,
+     so deleted rows are overwritten in the file, not left in free pages.
 8. *Explain My Trend — deferred, see "Not yet built"*
 9. Account creation + login — email + password, bcrypt-hashed; login
    lasts while the tab is open. Emails are stored lowercased and are
@@ -306,6 +332,14 @@ items stay listed here as a pointer.
       simulated people with a planted stress link) and stay quiet
       without one (≤ 15% of simulated people with no planted pattern
       get any explanation)
+- [ ] Doctor export (CSV and PDF) contains only that user's data and
+      none of the excluded details (email, mood, tags, remedy, SHAP,
+      partner) — tested by searching the generated text; its
+      irregularity reasons never name a cause
+- [ ] After delete-all-my-data, a test reads the raw database file and
+      finds none of the user's name, email, or password hash — with a
+      control test showing the same search does find them when
+      secure_delete is off
 - [ ] The period rule's boundary is pinned by tests: bleeding day 1,
       nothing days 2–3, light flow day 4 is one period; 6 non-bleeding
       days between bleeds is still one period; 7 starts a new one
@@ -320,7 +354,7 @@ review on its own), lifestyle_link.py, remedy.py, .streamlit/config.toml,
 assets/ (custom CSS), static/fonts/ (self-hosted Quicksand + its OFL
 license), tests/test_db.py, tests/test_auth.py, tests/test_partner.py,
 tests/test_predict.py, tests/test_simulate.py, tests/test_irregularity.py,
-tests/test_theme.py, tests/ui_checks.py (shared AppTest helpers for the
+tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/ui_checks.py (shared AppTest helpers for the
 disclaimer checks), tests/test_qna.py,
 tests/test_lifestyle_link.py, tests/test_remedy.py, requirements.txt,
 Dockerfile, docker-compose.yml, README.md
@@ -345,7 +379,6 @@ Dockerfile, docker-compose.yml, README.md
   phase that needs them (Phase 7). (daily_log columns and the cycle
   rule were settled for Phase 2, prediction/fertile window/irregularity
   for Phase 3 — see Data and Features.)
-  - export contents (which fields go in the CSV/PDF)
   - "v1's acceptance criteria still apply" — those criteria aren't in
     this file; the ones that still matter need restating here (the
     prediction and irregularity ones now live in the acceptance list

@@ -122,13 +122,42 @@ def init_schema(conn: sqlite3.Connection) -> None:
 
 
 def connect(path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """Open the database file (creating it if needed) with foreign keys on."""
+    """Open the database file (creating it if needed) with foreign keys on.
+
+    secure_delete makes SQLite overwrite deleted rows with zeros instead
+    of leaving them in free pages of the file, so "delete all my data"
+    really removes it from disk (spec.md Feature 7).
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA secure_delete = ON")
     init_schema(conn)
     return conn
+
+
+def delete_account(conn: sqlite3.Connection, user_id: int, confirm_email: str) -> None:
+    """Delete everything for a user: logs, cycles, partner links (both
+    directions), and the account itself.
+
+    `confirm_email` must match the account's email (case-insensitive) —
+    the UI's typed confirmation, checked here so no caller can skip it.
+    """
+    user = auth.get_user(conn, user_id)
+    if user is None:
+        raise ValueError("No such account.")
+    if auth.normalize_email(confirm_email) != user.email:
+        raise ValueError("That email doesn't match this account — nothing was deleted.")
+    with conn:
+        conn.execute("DELETE FROM daily_symptom WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM daily_log WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM cycle WHERE user_id = ?", (user_id,))
+        conn.execute(
+            "DELETE FROM partner_links WHERE user_id = ? OR partner_user_id = ?",
+            (user_id, user_id),
+        )
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
 
 # --- daily logs ---------------------------------------------------------------

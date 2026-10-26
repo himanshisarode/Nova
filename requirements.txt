@@ -6,4 +6,6 @@ scikit-learn==1.9.1
 shap==0.54.1
 plotly==7.1.0
 bcrypt==5.0.0
+reportlab==5.1.0
 pytest==9.1.1
+pypdf==6.21.2

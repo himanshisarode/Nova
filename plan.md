@@ -130,15 +130,23 @@ See SPEC.md "Not yet built".
 
 ### Phase 7 — charts.py, export.py, qna_content.py
 - charts.py, export.py: full per-user implementations, styled per the
-  Phase 0 design system (export contents: see SPEC.md Open Questions)
+  Phase 0 design system (export contents: SPEC.md Features 6–7)
+- Q&A wording is reviewed separately before it goes into
+  qna_content.py (drafted 2026-10-27, awaiting review)
 - qna_content.py: the 10 Q&A pairs as a static data structure (list of
   {question, answer} — keep content separate from whatever renders it, so
   the actual wording is easy to review in a diff on its own, not buried
   inside UI code)
-Acceptance: export test (CSV/PDF contain the user's data and only that
-user's); qna page renders all 10 entries, makes zero network calls (this
-one's pure static content, not an AI feature, worth a test asserting no
-request is ever sent from this page)
+Acceptance:
+- [x] Export test: CSV/PDF contain the user's data and only that user's,
+      none of the excluded details; reasons never name a cause
+- [x] Delete-all: raw-file grep finds nothing afterwards (and the
+      control without secure_delete does find it)
+- [x] Charts plot hand-checked values; empty data gives no chart
+- [ ] qna page renders all 10 entries, makes zero network calls (this
+      one's pure static content, not an AI feature, worth a test
+      asserting no request is ever sent from this page) — after the
+      wording is approved
 
 ### Phase 7.5 — lifestyle_link.py, remedy.py
 Both are local stats, not API calls — deliberate, see SPEC.md's

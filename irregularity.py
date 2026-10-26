@@ -63,6 +63,17 @@ class CycleAssessment:
     @property
     def message(self) -> str:
         """Plain-language reason, e.g. "41 days — 12 days longer than your usual 29"."""
+        reason = self.reason
+        return f"{self.length} days — {reason}" if reason else f"{self.length} days"
+
+    @property
+    def reason(self) -> str:
+        """What happened, never why — e.g. "12 days longer than your usual 29".
+
+        Empty for a regular cycle. Deliberately says nothing about
+        lifestyle factors: this text goes into the doctor export, which
+        leaves tags and SHAP explanations out on purpose.
+        """
         reasons = []
         if self.deviation is not None and abs(self.deviation) > MAX_DEVIATION_DAYS:
             direction = "longer" if self.deviation > 0 else "shorter"
@@ -75,7 +86,7 @@ class CycleAssessment:
                 f"{direction} than the {NORMAL_RANGE[0]}–{NORMAL_RANGE[1]} day range "
                 "that's typical for adults"
             )
-        return f"{self.length} days — " + "; ".join(reasons) if reasons else f"{self.length} days"
+        return "; ".join(reasons)
 
 
 @dataclass(frozen=True)
