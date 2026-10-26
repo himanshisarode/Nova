@@ -1,0 +1,70 @@
+"""Shared look-and-feel helpers for every Nova page (SPEC.md "Design").
+
+The base palette and font come from .streamlit/config.toml; this module
+injects assets/nova.css on top and provides the card and empty-state
+building blocks so pages don't hand-roll their own styling.
+"""
+from functools import lru_cache
+from html import escape
+from pathlib import Path
+
+import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
+
+CSS_PATH = Path(__file__).parent / "assets" / "nova.css"
+CARD_TONES = ("plain", "blush", "lavender")
+
+
+@lru_cache(maxsize=1)
+def _css() -> str:
+    return CSS_PATH.read_text(encoding="utf-8")
+
+
+def apply_theme() -> None:
+    """Inject Nova's custom CSS. Call once near the top of every page."""
+    st.html(f"<style>{_css()}</style>")
+
+
+def card(name: str, tone: str = "plain") -> DeltaGenerator:
+    """A soft-edged card container; use as `with card("stats"): ...`.
+
+    `name` must be unique on the page (it becomes the container's key).
+    """
+    if tone not in CARD_TONES:
+        raise ValueError(f"tone must be one of {CARD_TONES}, got {tone!r}")
+    prefix = "nova-card" if tone == "plain" else f"nova-card-{tone}"
+    return st.container(key=f"{prefix}-{name}")
+
+
+def eyebrow(text: str) -> None:
+    """Small uppercase label above a card's title."""
+    st.html(f'<div class="nova-eyebrow">{escape(text)}</div>')
+
+
+def empty_state(
+    title: str,
+    body: str,
+    icon: str = "🌱",
+    have: int | None = None,
+    need: int | None = None,
+) -> None:
+    """A warm "not enough data yet" message, optionally with a progress bar.
+
+    `have`/`need` show how close the user is to unlocking the feature
+    (e.g. 2 of 3 cycles), so waiting reads as progress, not a refusal.
+    """
+    progress = ""
+    if have is not None and need:
+        pct = min(100, round(100 * have / need))
+        progress = (
+            f'<div class="nova-progress"><span style="width:{pct}%"></span></div>'
+            f'<div class="nova-progress-label">{have} of {need} so far</div>'
+        )
+    st.html(
+        '<div class="nova-empty">'
+        f'<div class="nova-empty-icon">{escape(icon)}</div>'
+        f'<div class="nova-empty-title">{escape(title)}</div>'
+        f'<div class="nova-empty-body">{escape(body)}</div>'
+        f"{progress}"
+        "</div>"
+    )

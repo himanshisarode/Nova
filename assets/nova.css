@@ -1,0 +1,139 @@
+/* Nova — cozy-journal layer on top of .streamlit/config.toml.
+   Rule of thumb: soft shadows instead of hard borders, rounded everything,
+   room to breathe. Colors mirror config.toml; keep the two in sync. */
+
+:root {
+  --nova-blush: #F6C6CE;
+  --nova-blush-soft: #FCEEF0;
+  --nova-lavender: #D9C9E8;
+  --nova-lavender-soft: #F5EEF8;
+  --nova-cream: #FFF8F3;
+  --nova-card: #FFFDFB;
+  --nova-charcoal: #3B3436;
+  --nova-muted: #7D7275;
+  --nova-shadow: 0 6px 24px rgba(180, 120, 135, 0.12), 0 1px 3px rgba(180, 120, 135, 0.08);
+  --nova-shadow-lift: 0 10px 32px rgba(180, 120, 135, 0.18), 0 2px 6px rgba(180, 120, 135, 0.10);
+  --nova-radius: 22px;
+}
+
+/* Page: cream with two very faint blush/lavender glows, like paper in warm light. */
+.stApp {
+  background:
+    radial-gradient(1100px 500px at 8% -10%, rgba(246, 198, 206, 0.35), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, rgba(217, 201, 232, 0.35), transparent 60%),
+    var(--nova-cream);
+}
+header[data-testid="stHeader"] { background: transparent; }
+[data-testid="stDecoration"] { display: none; }
+
+/* Generous whitespace: narrower reading column, more air between blocks. */
+.block-container {
+  max-width: 880px;
+  padding-top: 3.5rem;
+  padding-bottom: 5rem;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] { gap: 1.25rem; }
+
+h1, h2, h3 { letter-spacing: -0.01em; color: var(--nova-charcoal); }
+p, li, label { line-height: 1.65; }
+
+/* Cards: any container created with theme.card(...). */
+[class*="st-key-nova-card"] {
+  background: var(--nova-card);
+  border-radius: var(--nova-radius);
+  box-shadow: var(--nova-shadow);
+  padding: 1.75rem 1.9rem;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+[class*="st-key-nova-card"]:hover { box-shadow: var(--nova-shadow-lift); }
+
+/* Tinted cards for gentle emphasis. */
+[class*="st-key-nova-card-blush"] { background: linear-gradient(135deg, #FFF1F3, var(--nova-card)); }
+[class*="st-key-nova-card-lavender"] { background: linear-gradient(135deg, #F7F0FB, var(--nova-card)); }
+
+/* Metrics read as little stat tiles. */
+[data-testid="stMetric"] {
+  background: var(--nova-blush-soft);
+  border-radius: 18px;
+  padding: 1rem 1.2rem;
+}
+[data-testid="stMetricLabel"] p { color: var(--nova-muted); font-weight: 600; }
+
+/* Buttons: blush pill with charcoal text (white on blush would be unreadable). */
+[data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-primaryFormSubmit"] {
+  background: var(--nova-blush);
+  border: none;
+  color: var(--nova-charcoal);
+  font-weight: 700;
+  padding: 0.55rem 1.6rem;
+  box-shadow: 0 4px 14px rgba(212, 114, 138, 0.25);
+}
+[data-testid="stBaseButton-primary"]:hover,
+[data-testid="stBaseButton-primaryFormSubmit"]:hover {
+  background: #F2B3BE;
+  color: var(--nova-charcoal);
+  border: none;
+}
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-secondaryFormSubmit"] {
+  background: var(--nova-lavender-soft);
+  border: none;
+  color: var(--nova-charcoal);
+  font-weight: 600;
+}
+[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
+  background: var(--nova-lavender);
+  color: var(--nova-charcoal);
+}
+
+/* Forms and expanders: drop the hard outline, use the card look instead. */
+[data-testid="stForm"] { border: none; padding: 0; }
+[data-testid="stExpander"] details {
+  border: none;
+  border-radius: 18px;
+  background: var(--nova-card);
+  box-shadow: var(--nova-shadow);
+}
+[data-testid="stExpander"] summary { padding: 0.9rem 1.2rem; font-weight: 600; }
+
+/* Alerts: rounded, borderless. */
+[data-testid="stAlertContainer"] { border-radius: 18px; border: none; }
+
+/* Sidebar: lavender, no dividing line. */
+[data-testid="stSidebar"] { border-right: none; box-shadow: 4px 0 24px rgba(160, 130, 190, 0.10); }
+
+/* Empty state (theme.empty_state): warm, centered, never alarming. */
+.nova-empty {
+  text-align: center;
+  padding: 1.5rem 1rem 0.75rem;
+}
+.nova-empty .nova-empty-icon { font-size: 2.4rem; line-height: 1; margin-bottom: 0.75rem; }
+.nova-empty .nova-empty-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.35rem; }
+.nova-empty .nova-empty-body { color: var(--nova-muted); max-width: 30rem; margin: 0 auto; }
+.nova-empty .nova-progress {
+  margin: 1.1rem auto 0;
+  max-width: 16rem;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--nova-lavender-soft);
+  overflow: hidden;
+}
+.nova-empty .nova-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--nova-blush), var(--nova-lavender));
+}
+.nova-empty .nova-progress-label { color: var(--nova-muted); font-size: 0.85rem; margin-top: 0.4rem; }
+
+/* Small eyebrow label above card titles. */
+.nova-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #B5627A;
+  margin-bottom: 0.2rem;
+}

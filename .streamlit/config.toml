@@ -1,0 +1,63 @@
+# Nova's base theme (SPEC.md "Design"). Layout details that config can't
+# express — cards, shadows, spacing — live in assets/nova.css.
+
+[browser]
+# Nothing in the app sends data anywhere (SPEC.md Architecture), including
+# Streamlit's own usage telemetry.
+gatherUsageStats = false
+
+[server]
+# Serves static/ at app/static/ — used for the self-hosted Quicksand font.
+enableStaticServing = true
+
+[theme]
+base = "light"
+
+# Palette from SPEC.md. Blush (#F6C6CE) is too pale to mark a checked box
+# or slider position against cream, so widget states use a deeper rose;
+# blush itself is used for surfaces and primary buttons in nova.css.
+primaryColor = "#D4728A"
+backgroundColor = "#FFF8F3"
+secondaryBackgroundColor = "#FCEEF0"
+textColor = "#3B3436"
+linkColor = "#B5627A"
+borderColor = "#F0DDE2"
+showWidgetBorder = true
+
+# Alerts: st.info becomes lavender instead of clinical blue; the rest are
+# softened but still clearly distinguishable.
+blueColor = "#9A82B8"
+blueBackgroundColor = "#F1E9F7"
+blueTextColor = "#5E4A78"
+greenColor = "#7FAF97"
+greenBackgroundColor = "#EAF4EE"
+greenTextColor = "#3F6B55"
+yellowColor = "#E2B65C"
+yellowBackgroundColor = "#FDF3DC"
+yellowTextColor = "#7A5B1E"
+orangeColor = "#E79A6B"
+orangeBackgroundColor = "#FCEBDD"
+orangeTextColor = "#82472A"
+redColor = "#D45D6E"
+redBackgroundColor = "#FBE4E6"
+redTextColor = "#8E3443"
+
+chartCategoricalColors = ["#E58FA3", "#A88BC9", "#F2B880", "#8CC0A8", "#C9A0B8"]
+
+baseRadius = "1rem"
+buttonRadius = "full"
+
+font = "Quicksand, sans-serif"
+headingFont = "Quicksand, sans-serif"
+baseFontSize = 16
+baseFontWeight = 500
+headingFontWeights = [700, 700, 600, 600, 600, 600]
+
+[[theme.fontFaces]]
+family = "Quicksand"
+url = "app/static/fonts/Quicksand-VariableFont_wght.ttf"
+weight = "300 700"
+
+[theme.sidebar]
+backgroundColor = "#F5EEF8"
+secondaryBackgroundColor = "#FFFFFF"
