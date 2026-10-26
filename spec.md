@@ -358,10 +358,10 @@ review on its own), lifestyle_link.py, remedy.py, .streamlit/config.toml,
 assets/ (custom CSS), static/fonts/ (self-hosted Quicksand + its OFL
 license), tests/test_db.py, tests/test_auth.py, tests/test_partner.py,
 tests/test_predict.py, tests/test_simulate.py, tests/test_irregularity.py,
-tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/test_local_stats.py, tests/test_app.py, tests/conftest.py (no_network fixture), tests/ui_checks.py (shared AppTest helpers for the
+tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/test_local_stats.py, tests/test_app.py, tests/test_docker.py, tests/conftest.py (no_network fixture), tests/ui_checks.py (shared AppTest helpers for the
 disclaimer checks), tests/test_qna.py,
 tests/test_lifestyle_link.py, tests/test_remedy.py, requirements.txt,
-Dockerfile, docker-compose.yml, README.md
+Dockerfile, docker-compose.yml, .dockerignore, README.md
 
 ## Open Questions (unresolved, flagging rather than guessing)
 - Exact pastel hex values given above are a starting point, not final —

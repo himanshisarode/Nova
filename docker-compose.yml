@@ -1,0 +1,14 @@
+services:
+  nova:
+    build: .
+    image: nova:latest
+    ports:
+      - "127.0.0.1:8501:8501"  # this machine only
+    environment:
+      NOVA_DB_PATH: /data/nova.db
+    volumes:
+      - nova-data:/data  # the database; survives down/up (not `down -v`)
+    restart: unless-stopped
+
+volumes:
+  nova-data:

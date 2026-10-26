@@ -193,9 +193,14 @@ Found while checking the running app (see SPEC.md Open Questions):
   layer — tested with multiple users' data surviving a full container
   restart, not just one user's
 Acceptance:
-- [ ] `docker compose up` serves the app with no errors
-- [ ] Two users' data both survive `docker compose down && up`
-- [ ] Full `pytest tests/` passes — final gate before calling v2 done
+- [ ] `docker compose up` serves the app with no errors — NOT YET
+      VERIFIED: Docker isn't installed on the dev machine. Checked so
+      far: every requirement resolves to a prebuilt Linux/py3.14 wheel
+- [ ] Two users' data both survive `docker compose down && up` — test
+      written (tests/test_docker.py), skipped until run where Docker is
+      installed; static checks confirm the DB is on the named volume
+- [x] Full `pytest tests/` passes — final gate before calling v2 done
+      (with the Docker live check skipped, see above)
 
 ## Risks / ambiguities
 - Phase 2/3 depend on definitions that used to be inherited from v1 and
