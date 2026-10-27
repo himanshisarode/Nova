@@ -57,6 +57,9 @@ def test_container_runs_as_non_root():
     entrypoint = (ROOT / "docker-entrypoint.sh").read_text(encoding="utf-8")
     assert 'ENTRYPOINT ["/app/docker-entrypoint.sh"]' in DOCKERFILE
     assert "exec setpriv --reuid=nova --regid=nova --init-groups" in entrypoint
+    # Regression: without this HOME stayed /root and Streamlit crashed on
+    # startup reading /root/.streamlit/secrets.toml (seen on Fly.io).
+    assert "export HOME=/home/nova" in entrypoint
 
 
 def test_fly_mounts_the_volume_where_the_db_lives():

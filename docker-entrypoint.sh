@@ -8,6 +8,9 @@ DATA_DIR="$(dirname "${NOVA_DB_PATH:-/data/nova.db}")"
 if [ "$(id -u)" = "0" ]; then
     mkdir -p "$DATA_DIR"
     chown nova:nova "$DATA_DIR"
+    # setpriv keeps the environment, so HOME would still be /root, which
+    # nova can't read (Streamlit looks for ~/.streamlit/secrets.toml).
+    export HOME=/home/nova USER=nova
     exec setpriv --reuid=nova --regid=nova --init-groups "$@"
 fi
 exec "$@"
