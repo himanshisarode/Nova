@@ -69,7 +69,7 @@ on a 1 GB Fly volume mounted at `/data`. Install
 ```bash
 fly auth login
 fly launch --copy-config --no-deploy   # creates the app; rename it if "nova-cycle" is taken
-fly volumes create nova_data --size 1 --region ams
+fly volumes create nova_data --size 1 --region sin
 fly deploy
 fly scale count 1                      # one machine only: SQLite can't be shared
 ```
