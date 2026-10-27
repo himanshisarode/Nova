@@ -85,10 +85,16 @@ print(json.dumps(out))
 
 
 def _compose(*args, timeout=900) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    result = subprocess.run(
         [DOCKER, "compose", "-p", PROJECT, *args],
-        cwd=ROOT, capture_output=True, text=True, timeout=timeout, check=True,
+        cwd=ROOT, capture_output=True, text=True, timeout=timeout,
     )
+    # Fail with the container's own error output, not just an exit code.
+    assert result.returncode == 0, (
+        f"docker compose {args[0]} failed ({result.returncode}):\n"
+        f"{result.stderr[-2000:]}\n{result.stdout[-1000:]}"
+    )
+    return result
 
 
 def _wait_healthy(seconds=180):

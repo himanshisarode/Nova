@@ -8,7 +8,6 @@ disclaimer, and every page ends with the disclaimer footer (spec.md).
 The database file is data/nova.db, or NOVA_DB_PATH if set (Docker mounts
 a volume there). A connection is opened per script run.
 """
-import os
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -26,7 +25,7 @@ import qna_content
 import remedy
 from theme import apply_theme, card, empty_state, eyebrow, footer, medical_disclaimer
 
-DB_PATH = Path(os.environ.get("NOVA_DB_PATH", db.DEFAULT_DB_PATH))
+DB_PATH = db.db_path()
 PAGES = ("Today", "Home", "Cycle Trends", "Insights", "Did You Know?", "Shared with me", "Settings")
 NOT_RECORDED = "not recorded"
 MOOD_LABELS = {NOT_RECORDED: "not recorded", 1: "😣 1", 2: "😕 2", 3: "😐 3", 4: "🙂 4", 5: "😊 5"}

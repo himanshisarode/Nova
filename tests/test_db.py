@@ -235,3 +235,23 @@ def test_editing_a_log_rebuilds_cycles(conn, users):
     db.save_log(conn, a, db.LogEntry(D("2026-01-29"), flow="heavy"))
     db.delete_log(conn, a, D("2026-01-29"))
     assert db.get_cycles(conn, a) == []
+
+
+# --- where the database lives ---------------------------------------------------
+
+def test_connect_without_a_path_honours_nova_db_path(tmp_path, monkeypatch):
+    # Regression: db.connect() used to ignore NOVA_DB_PATH, so code run
+    # inside the container (e.g. `docker compose exec`) wrote to the
+    # container's own disk instead of the /data volume.
+    target = tmp_path / "volume" / "nova.db"
+    monkeypatch.setenv("NOVA_DB_PATH", str(target))
+    conn = db.connect()
+    auth.signup(conn, "a@example.com", "password-a-123", "A")
+    conn.close()
+    assert target.is_file()
+    assert db.db_path() == target
+
+
+def test_default_location_without_the_variable(monkeypatch):
+    monkeypatch.delenv("NOVA_DB_PATH", raising=False)
+    assert db.db_path() == db.DEFAULT_DB_PATH

@@ -7,6 +7,7 @@ Cycles are derived data: each write that changes a user's logs rebuilds
 that user's `cycle` rows in the same transaction, using the period-start
 rule in spec.md's Data section, so the table can't drift out of sync.
 """
+import os
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -16,6 +17,13 @@ import auth
 from remedy import normalize_remedy
 
 DEFAULT_DB_PATH = Path(__file__).parent / "data" / "nova.db"
+
+
+def db_path() -> Path:
+    """Where the database lives: NOVA_DB_PATH if set (Docker points it at
+    the /data volume), else data/nova.db. Read at call time, so every
+    caller — the app, scripts, `docker compose exec` — agrees."""
+    return Path(os.environ.get("NOVA_DB_PATH") or DEFAULT_DB_PATH)
 
 # None (not recorded) is also allowed. "spotting" is logged but never
 # counts as bleeding, so it can't start a period.
@@ -130,14 +138,14 @@ def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
 
 
-def connect(path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
+def connect(path: Path | str | None = None) -> sqlite3.Connection:
     """Open the database file (creating it if needed) with foreign keys on.
 
     secure_delete makes SQLite overwrite deleted rows with zeros instead
     of leaving them in free pages of the file, so "delete all my data"
     really removes it from disk (spec.md Feature 7).
     """
-    path = Path(path)
+    path = Path(path) if path is not None else db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA foreign_keys = ON")
