@@ -3,7 +3,7 @@
 # The app name is the one Fly assigned when the app was created.
 
 app = "nova-aug47w"
-primary_region = "maa"  # Chennai, closest to Bengaluru
+primary_region = "sin"  # Singapore: closest region to India this account can use
 
 [build]
   dockerfile = "Dockerfile"
