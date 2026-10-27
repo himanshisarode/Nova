@@ -3,7 +3,7 @@
 # The app name must be unique across Fly; change it if it's taken.
 
 app = "nova-cycle"
-primary_region = "sin"  # Singapore: closest Fly region to India (Fly has none in India)
+primary_region = "maa"  # Chennai, closest to Bengaluru
 
 [build]
   dockerfile = "Dockerfile"
