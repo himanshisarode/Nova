@@ -1,0 +1,39 @@
+# Nova on Fly.io (README "Deploy to Fly.io"). One machine with one volume:
+# SQLite can't be shared between machines, so never scale above 1.
+# The app name must be unique across Fly; change it if it's taken.
+
+app = "nova-cycle"
+primary_region = "bom"  # Mumbai; `fly platform regions` lists the others
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NOVA_DB_PATH = "/data/nova.db"
+
+# The database lives here, not in the machine's disk, which is wiped on
+# every deploy. Create it once: fly volumes create nova_data --size 1
+[mounts]
+  source = "nova_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8501
+  force_https = true
+  # Stops the machine when nobody is using it (cheaper); the next visit
+  # starts it again in a few seconds. Signed-in tabs have to log in again.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/_stcore/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "60s"
+
+# SHAP and scikit-learn need more than the 256 MB default.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

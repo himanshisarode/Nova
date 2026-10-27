@@ -6,3 +6,5 @@ data
 design_preview
 *.db
 *.db-journal
+transcript.md
+fly.toml

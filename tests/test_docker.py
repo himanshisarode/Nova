@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import time
+import tomllib
 import urllib.request
 from pathlib import PurePosixPath, Path
 
@@ -51,7 +52,19 @@ def test_port_published_on_this_machine_only():
 
 
 def test_container_runs_as_non_root():
-    assert "\nUSER nova\n" in DOCKERFILE
+    # The image starts as root only so the entrypoint can chown /data
+    # (Fly.io mounts volumes root-owned); it then drops to nova for good.
+    entrypoint = (ROOT / "docker-entrypoint.sh").read_text(encoding="utf-8")
+    assert 'ENTRYPOINT ["/app/docker-entrypoint.sh"]' in DOCKERFILE
+    assert "exec setpriv --reuid=nova --regid=nova --init-groups" in entrypoint
+
+
+def test_fly_mounts_the_volume_where_the_db_lives():
+    fly = tomllib.loads((ROOT / "fly.toml").read_text(encoding="utf-8"))
+    assert fly["env"]["NOVA_DB_PATH"] == str(_db_path())
+    assert fly["mounts"]["destination"] == str(_db_path().parent)
+    assert fly["http_service"]["internal_port"] == 8501
+    assert fly["http_service"]["checks"][0]["path"] == "/_stcore/health"
 
 
 def test_build_context_excludes_local_data_and_venv():
@@ -120,13 +133,16 @@ def test_two_users_data_survives_compose_down_and_up():
     try:
         _compose("up", "-d", "--build")
         _wait_healthy()
-        _compose("exec", "-T", "nova", "python", "-c", SEED)
+        _compose("exec", "-T", "-u", "nova", "nova", "python", "-c", SEED)
+        # The Streamlit process (PID 1 after the entrypoint's exec) is nova, not root.
+        uid = _compose("exec", "-T", "nova", "python", "-c", "import os; print(os.stat('/proc/1').st_uid)")
+        assert uid.stdout.strip() == "1000"
 
         _compose("down")  # no -v: the named volume must survive
         _compose("up", "-d")
         _wait_healthy()
 
-        result = json.loads(_compose("exec", "-T", "nova", "python", "-c", CHECK).stdout)
+        result = json.loads(_compose("exec", "-T", "-u", "nova", "nova", "python", "-c", CHECK).stdout)
         assert result == {"a@example.com": ["2026-01-01"], "b@example.com": ["2026-02-01"]}
     finally:
         subprocess.run([DOCKER, "compose", "-p", PROJECT, "down", "-v"], cwd=ROOT,

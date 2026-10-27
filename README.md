@@ -60,6 +60,33 @@ inside the container — so it survives `docker compose down` followed by
 `docker compose up`. **`docker compose down -v` deletes the volume and all
 data in it.**
 
+## Deploy to Fly.io
+
+`fly.toml` runs the same Docker image on one Fly machine, with the database
+on a 1 GB Fly volume mounted at `/data`. Install
+[flyctl](https://fly.io/docs/flyctl/install/), then:
+
+```bash
+fly auth login
+fly launch --copy-config --no-deploy   # creates the app; rename it if "nova-cycle" is taken
+fly volumes create nova_data --size 1 --region bom
+fly deploy
+fly scale count 1                      # one machine only: SQLite can't be shared
+```
+
+Open the URL `fly deploy` prints (`https://<app>.fly.dev`). Later deploys are
+just `fly deploy`; the volume and its data stay. Notes:
+
+- **Never run more than one machine.** Each machine would get its own,
+  separate database.
+- The machine stops when idle and starts on the next visit (a few seconds).
+  Signed-in tabs have to log in again afterwards.
+- Fly snapshots volumes daily, but keep your own copy too:
+  `fly ssh sftp get /data/nova.db nova-backup.db`.
+- Unlike Docker locally, the app is public on the internet. Accounts are
+  password-protected, but this is a course project, not a certified health
+  service; don't store real health data you aren't comfortable with.
+
 ## Tests
 
 ```bash
