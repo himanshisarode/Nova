@@ -1,8 +1,8 @@
 # Nova on Fly.io (README "Deploy to Fly.io"). One machine with one volume:
 # SQLite can't be shared between machines, so never scale above 1.
-# The app name must be unique across Fly; change it if it's taken.
+# The app name is the one Fly assigned when the app was created.
 
-app = "nova-cycle"
+app = "nova-aug47w"
 primary_region = "maa"  # Chennai, closest to Bengaluru
 
 [build]
