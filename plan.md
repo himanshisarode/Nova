@@ -242,12 +242,12 @@ Never cut: the non-negotiable rules, the fixture, the payload tests.
   current-cycle windows, bucket(), candidate_buckets()
 - gate.py: the three conditions + progress
 Acceptance:
-- [ ] tests/test_phases.py: hand-worked cycles (24, 29, 38 days; L 12
+- [x] tests/test_phases.py: hand-worked cycles (24, 29, 38 days; L 12
       and 14), current-cycle windows, late period, < 3 cycles
-- [ ] tests/test_gate.py: each boundary on its own
-- [ ] tests/test_migration.py: old-schema database migrates, rows
+- [x] tests/test_gate.py: each boundary on its own
+- [x] tests/test_migration.py: old-schema database migrates, rows
       unchanged; running migrate twice is a no-op
-- [ ] Existing suite unchanged and passing
+- [x] Existing suite unchanged and passing
 
 ### Phase 11 — whatworks.py
 - Stratified permutation test + BH, minimums, tiers, describe()
@@ -256,11 +256,12 @@ Acceptance:
 - simulate.py: strategy/rating simulation on its own RNG stream, so
   every existing simulate test keeps its numbers
 Acceptance:
-- [ ] Fixture: planted effect found with the exact statistic/p-value;
+- [x] Fixture: planted effect found with the exact statistic/p-value;
       negative control not found; below-minimum pairs refused
-- [ ] Simulation: planted effects found in ≥ 80% of people; ≤ 10% of
-      no-effect people get any "tends to go well"
-- [ ] whatworks.py imports nothing network-capable (same AST check)
+- [x] Simulation: planted effects found in ≥ 80% of people; ≤ 10% of
+      no-effect people get any "tends to go well" (95%/90% found, 2.5%
+      false at 8 cycles; full table in DECISIONS.md)
+- [x] whatworks.py imports nothing network-capable (same AST check)
 
 ### Phase 12 — llm.py + Phase Guide (Level 1)
 - llm.py: Anthropic SDK, model constant, key from env only, caps in
@@ -270,29 +271,34 @@ Acceptance:
   storage in phase_guide (once per completed cycle)
 - .env in .gitignore; requirements.txt adds anthropic
 Acceptance:
-- [ ] Real request body (captured by an httpx2 MockTransport) holds
+- [x] Real request body (captured by an httpx2 MockTransport) holds
       only labels, tiers and two numbers
-- [ ] Unsupplied strategy / medical wording / non-associative wording
+- [x] Unsupplied strategy / medical wording / non-associative wording
       → rejected → template
-- [ ] Cap blocks call N+1 per user and per call type
-- [ ] No key, network error, 500, bad JSON → template, app usable
-- [ ] Off until opt-in; only phase_guide.py and week_fit.py import llm
-- [ ] No API key string in any tracked file (test greps git ls-files)
+- [x] Cap blocks call N+1 per user and per call type
+- [x] No key, network error, 500, bad JSON → template, app usable
+- [x] Off until opt-in; only phase_guide.py and week_fit.py import llm
+- [x] No API key string in any tracked file (test greps git ls-files)
+Found while building: the Anthropic SDK logs whole request bodies at
+DEBUG — llm.py pins its loggers to WARNING (tested with a DEBUG root
+logger).
 
 ### Phase 13 — demo.py
 - simulate.py planted per-phase strategy effects; demo.seed(conn,
   today); ensure_demo(); is_demo flag; partner.py refuses demo
   invites; auth.signup refuses @nova.invalid
 Acceptance:
-- [ ] ≥ 8 months seeded; planted effects found end to end
-- [ ] Demo can't save logs, create or redeem invites (function level)
+- [x] ≥ 8 months seeded; planted effects found end to end
+- [x] Demo can't save logs, create or redeem invites (function level)
+Found while building: the simulator stops logging after the last
+period, so the demo simulates one extra cycle and cuts it at today.
 
 ### Phase 14 — week_fit.py (Level 2)
 - Notes check (≤ 200 chars, email/phone patterns), payload(),
   template(), validate() (per-day drop → that day's template; bad
   structure → whole template), generate(); nothing stored
 Acceptance: SPEC.md LLM layer list (payload, injection, notes never in
-the DB or logs, cap, failure, opt-in/revoke)
+the DB or logs, cap, failure, opt-in/revoke) — done, tests/test_week_fit.py
 
 ### Phase 15 — wiring + migration
 - Today: strategies, day rating, energy (no phase label)
@@ -311,10 +317,17 @@ the DB or logs, cap, failure, opt-in/revoke)
   `fly deploy` (same app name nova-aug47w, so the link doesn't change);
   log in and compare row counts with the pre-deploy numbers
 Acceptance:
-- [ ] Every Level 2 feature reachable; disclaimer in every card that
+- [x] Every Level 2 feature reachable; disclaimer in every card that
       shows a phase or finding; pre-gate users see progress only
-- [ ] Migration check passes on a copy of the local data/nova.db
-- [ ] Full suite passes (incl. Docker)
+- [x] Migration check passes on a copy of the local data/nova.db (1
+      user, no logs) and on a database built by the pre-Level-2 code
+      (2 users, 322 logs, cycles, remedies, a partner link): every row
+      unchanged
+- [x] Full suite passes (incl. Docker)
+Found while building: a demo visitor's opt-in toggle was lost when
+leaving Settings (Streamlit drops widget state); it's now copied to a
+plain session key. `.env` added to .dockerignore so a local key file
+can't be baked into the image.
 
 ### Phase 16 — stretch: Week Fit evaluation script
 - eval/week_fit_samples.json (≈ 15 hand-built weeks);

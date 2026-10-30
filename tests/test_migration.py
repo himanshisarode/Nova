@@ -135,3 +135,52 @@ def test_new_columns_keep_their_checks_after_migration(old_db):
                 conn.execute("UPDATE daily_log SET day_rating = 6 WHERE user_id = 1")
     finally:
         conn.close()
+
+
+def test_the_check_script_passes_on_an_old_database_and_never_touches_the_original(old_db, capsys):
+    import importlib.util
+    from pathlib import Path
+
+    path, before = old_db
+    original = path.read_bytes()
+    spec = importlib.util.spec_from_file_location(
+        "check_migration", Path(__file__).parent.parent / "scripts" / "check_migration.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.main(str(path)) == 0
+    assert "OK - every existing row is unchanged" in capsys.readouterr().out
+    assert path.read_bytes() == original  # only the copy was migrated
+
+
+def test_a_column_added_concurrently_is_not_an_error(old_db):
+    path, _ = old_db
+    first, second = sqlite3.connect(path), sqlite3.connect(path)
+    try:
+        db.migrate(first)
+        assert db.migrate(second) == []  # sees it's there; no crash
+    finally:
+        first.close()
+        second.close()
+
+
+def test_the_after_check_compares_a_backup_with_the_live_copy(old_db, tmp_path, capsys):
+    import importlib.util
+    import shutil
+    from pathlib import Path
+
+    path, _ = old_db
+    backup = tmp_path / "before.db"
+    shutil.copy(path, backup)
+    db.connect(path).close()  # "deploy": the live file gets migrated
+    spec = importlib.util.spec_from_file_location(
+        "check_migration", Path(__file__).parent.parent / "scripts" / "check_migration.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.main(str(backup), str(path)) == 0
+    # Control: a lost row is caught.
+    conn = sqlite3.connect(path)
+    with conn:
+        conn.execute("DELETE FROM remedy_log")
+    conn.close()
+    assert module.main(str(backup), str(path)) == 1
+    assert "CHANGED" in capsys.readouterr().out

@@ -586,11 +586,13 @@ tests/test_lifestyle_link.py, tests/test_remedy.py, requirements.txt,
 Dockerfile, docker-compose.yml, .dockerignore, README.md
 
 Level 2 adds: phases.py, gate.py, whatworks.py, demo.py, llm.py,
-phase_guide.py, week_fit.py, DECISIONS.md, scripts/check_migration.py,
+wording.py (output checks shared by both LLM calls), phase_guide.py,
+week_fit.py, DECISIONS.md, scripts/check_migration.py,
 scripts/eval_week_fit.py + eval/week_fit_samples.json (stretch),
-tests/test_phases.py, tests/test_gate.py, tests/test_whatworks.py,
-tests/test_whatworks_fixture.py (fixed once written), tests/test_demo.py,
-tests/test_llm.py, tests/test_phase_guide.py, tests/test_week_fit.py,
+tests/test_phases.py, tests/test_gate.py, tests/test_level2_db.py,
+tests/test_whatworks.py, tests/test_whatworks_fixture.py (fixed once
+written), tests/test_demo.py, tests/test_llm.py,
+tests/test_phase_guide.py, tests/test_week_fit.py,
 tests/test_migration.py, tests/test_level2_app.py.
 
 ## Open Questions (unresolved, flagging rather than guessing)

@@ -134,3 +134,4 @@ def test_no_api_key_in_tracked_files():
             continue
         assert not pattern.search(path.read_text(encoding="utf-8", errors="ignore")), name
     assert ".env" in (ROOT / ".gitignore").read_text().split()
+    assert ".env" in (ROOT / ".dockerignore").read_text().split()  # never baked into the image

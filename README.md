@@ -29,9 +29,26 @@ A course project (UMC301). Not clinically reviewed or certified.
 | 💌 | Partner sharing | Single-use 48h invite codes; one-way, read-only, revocable; enforced by a read-only database connection |
 | 📦 | Your data | Export everything as a ZIP; delete everything (overwritten on disk via SQLite `secure_delete`) |
 
-**Not yet built** (described in `spec.md`): pregnancy mode, Symptom Checker,
-Explain My Trend. Nothing in the current app calls any external API or sends
-data anywhere — there are no API keys to configure.
+**Level 2 — personal cycle-syncing** (Features 17–23; every choice is
+explained in [DECISIONS.md](DECISIONS.md)):
+
+| | Feature | How |
+|---|---|---|
+| 🌗 | My phases | Phases from *your* cycles, never a 28-day template: ovulation counted back from the next period (your luteal length, default 14), shown as windows and labelled as estimates. Not shown while you log, so it can't nudge your ratings |
+| ✅ | What works for me | On the daily check-in: tick from 10 strategies (walk, yoga, strength, …), rate how the day went, optional energy. No food, calorie or weight tracking |
+| ⏳ | 6-month gate | Personal findings unlock after 180 days, 4 completed cycles and 90 of the last 180 days logged; before that, progress bars |
+| 📊 | By phase | Within-cycle stratified permutation test + Benjamini–Hochberg; "tends to go well" wording only; 8 uses over 4 cycles minimum |
+| ✍️ | Phase Guide | Optional AI write-up of those findings (labels only leave the machine), with a plain template fallback |
+| 📅 | Plan my week | Optional: write a note per day; AI fits your findings around it (notes are sent, never stored), with a template fallback |
+| 🎭 | Demo | "Try the demo": nine months of made-up data, clearly labelled, read-only, can't link to real accounts |
+
+Both AI features are **off until you opt in** in Settings, are capped per day,
+and the app works fully without an API key (the template versions show).
+Provider: Anthropic. Exactly what is sent for each is in `spec.md`
+"Constraints".
+
+**Not yet built** (described in `spec.md`): pregnancy mode, Symptom Checker.
+Explain My Trend was dropped; its job is one sentence in the Phase Guide.
 
 ## Run it locally
 
@@ -86,6 +103,70 @@ just `fly deploy`; the volume and its data stay. Notes:
 - Unlike Docker locally, the app is public on the internet. Accounts are
   password-protected, but this is a course project, not a certified health
   service; don't store real health data you aren't comfortable with.
+
+### Upgrading the live app to Level 2
+
+The app stays at **https://nova-aug47w.fly.dev** — `fly.toml` keeps the app
+name `nova-aug47w`, and nothing below creates, renames or destroys an app.
+The database migration is additive (new nullable columns and new tables) and
+runs by itself when the new code starts; old rows are never rewritten. Run
+these from the `nnova` folder on the `level2` branch.
+
+1. **Back up** (do this when nobody is using the app, so no write is half-done):
+
+   ```bash
+   fly volumes list -a nova-aug47w                    # note the volume id (vol_...)
+   fly volumes snapshots create <vol-id> -a nova-aug47w
+   fly ssh sftp get /data/nova.db nova-before-level2.db -a nova-aug47w
+   ```
+
+   If `fly ssh` says no machine is running, open the site once to wake it.
+
+2. **Check the migration on that copy, locally** (the copy is never changed;
+   the script migrates a second, temporary copy):
+
+   ```bash
+   python scripts/check_migration.py nova-before-level2.db
+   ```
+
+   It prints the row count of every table and must end with
+   `RESULT: OK - every existing row is unchanged`. Keep the output.
+
+3. **Set the API key as a Fly secret** (never in a file in the repo):
+
+   ```bash
+   fly secrets set ANTHROPIC_API_KEY=sk-ant-... --stage -a nova-aug47w
+   ```
+
+   `--stage` stores it without restarting; the deploy in step 4 picks it up.
+   (If your flyctl doesn't know `--stage`, leave it off — the app just
+   restarts once.) The key ends up in your shell history; clear that entry
+   if others use this computer. Without a key the app still works, showing
+   the template versions.
+
+4. **Deploy**:
+
+   ```bash
+   fly deploy -a nova-aug47w
+   fly logs -a nova-aug47w        # watch for a clean start, no tracebacks
+   ```
+
+5. **Confirm existing data survived**: log in to an existing account at
+   https://nova-aug47w.fly.dev and check its history; then download the
+   live, now-migrated database and compare it with the backup:
+
+   ```bash
+   fly ssh sftp get /data/nova.db nova-after-level2.db -a nova-aug47w
+   python scripts/check_migration.py nova-before-level2.db --after nova-after-level2.db
+   ```
+
+   Every table must say `unchanged` (rows added since the backup, if anyone
+   used the app in between, would show as `CHANGED` — compare the counts).
+
+**Rolling back**: `fly releases --image -a nova-aug47w` lists earlier images; then
+`fly deploy -a nova-aug47w --image <previous image>`. The old code ignores
+the new columns and tables, so the database doesn't need restoring; the
+snapshot from step 1 is there if it ever does.
 
 ## Tests
 

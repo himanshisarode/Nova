@@ -16,17 +16,27 @@ import streamlit as st
 import auth
 import charts
 import db
+import demo
 import export
+import gate
 import irregularity
 import lifestyle_link
 import partner
+import phase_guide
+import phases
 import predict
 import qna_content
 import remedy
+import week_fit
+import whatworks
 from theme import apply_theme, card, empty_state, eyebrow, footer, medical_disclaimer
 
 DB_PATH = db.db_path()
-PAGES = ("Today", "Home", "Cycle Trends", "Insights", "Did You Know?", "Shared with me", "Settings")
+PAGES = ("Today", "Home", "My phases", "Plan my week", "Cycle Trends", "Insights",
+         "Did You Know?", "Shared with me", "Settings")
+RATING_LABELS = {1: "😣 1", 2: "😕 2", 3: "😐 3", 4: "🙂 4", 5: "😊 5"}
+# Demo visitors opt in to the LLM features per tab, never in the shared account.
+DEMO_OPT_IN = {"phase_guide": "demo_opt_in_phase_guide", "week_fit": "demo_opt_in_week_fit"}
 NOT_RECORDED = "not recorded"
 MOOD_LABELS = {NOT_RECORDED: "not recorded", 1: "😣 1", 2: "😕 2", 3: "😐 3", 4: "🙂 4", 5: "😊 5"}
 
@@ -115,6 +125,12 @@ def page_login(conn) -> None:
                     st.rerun()
                 except auth.SignupError as exc:
                     st.error(str(exc))
+    with card("demo-entry", tone="lavender"):
+        st.markdown("**Just looking?** Explore Nova with nine months of made-up sample data — "
+                    "the personal findings and plans included.")
+        if st.button("Try the demo", key="try_demo"):
+            auth.start_session(demo.ensure_demo(conn))
+            st.rerun()
 
 
 def page_today(conn, user: auth.User, today: date) -> None:
@@ -146,6 +162,20 @@ def page_today(conn, user: auth.User, today: date) -> None:
                 t: col.checkbox(_label(t).capitalize(), value=getattr(existing, t), key=f"{t}_{k}")
                 for t, col in zip(db.LIFESTYLE_TAGS, cols)
             }
+            st.markdown("**What works for me** *(optional — a few taps)*")
+            strategies = st.pills(
+                "Tried today", db.STRATEGIES, selection_mode="multi",
+                default=sorted(existing.strategies), format_func=_label, key=f"strategies_{k}",
+            )
+            q1, q2 = st.columns(2)
+            day_rating = q1.segmented_control(
+                "How did today go?", list(RATING_LABELS), default=existing.day_rating,
+                format_func=RATING_LABELS.get, key=f"day_rating_{k}",
+            )
+            energy = q2.segmented_control(
+                "Energy", list(RATING_LABELS), default=existing.energy,
+                format_func=RATING_LABELS.get, key=f"energy_{k}",
+            )
             with st.expander("Tried something for a symptom? (optional)"):
                 r1, r2, r3 = st.columns([2, 3, 2])
                 r_symptom = r1.selectbox("For", [None, *db.SYMPTOMS], format_func=lambda s: "—" if s is None else _label(s), key=f"r_symptom_{k}")
@@ -155,11 +185,16 @@ def page_today(conn, user: auth.User, today: date) -> None:
                 if past:
                     st.caption("You've tried before: " + ", ".join(_label(p) for p in past[:8]))
             if st.form_submit_button("Save this day", type="primary"):
-                db.save_log(conn, user.id, db.LogEntry(
-                    day, flow=None if flow == NOT_RECORDED else flow,
-                    mood=None if mood == NOT_RECORDED else mood,
-                    symptoms=frozenset(symptoms), **tags,
-                ))
+                try:
+                    db.save_log(conn, user.id, db.LogEntry(
+                        day, flow=None if flow == NOT_RECORDED else flow,
+                        mood=None if mood == NOT_RECORDED else mood,
+                        symptoms=frozenset(symptoms), **tags,
+                        day_rating=day_rating, energy=energy, strategies=frozenset(strategies or ()),
+                    ))
+                except db.DemoReadOnly as exc:
+                    st.info(str(exc))
+                    return
                 if r_text.strip():
                     if r_symptom is None:
                         st.warning("Day saved. To save the remedy too, pick which symptom it was for.")
@@ -204,10 +239,11 @@ def page_home(conn, user: auth.User, today: date) -> None:
             )
         else:
             p = (predict.honest_prediction if mode == "Honest" else predict.simple_prediction)(lengths, last)
-            w = predict.fertile_window(p)
+            luteal_days = phases.luteal(db.get_settings(conn, user.id).luteal_days)
+            w = predict.fertile_window(p, luteal_days)
             st.markdown(f"### {_fmt(w.start)} – {_fmt(w.end)}")
             st.caption(
-                "Estimated as 14 days before your predicted period, give or take. "
+                f"Estimated as {luteal_days} days before your predicted period, give or take. "
                 "Never rely on this to prevent pregnancy."
             )
         medical_disclaimer()
@@ -311,6 +347,201 @@ def page_insights(conn, user: auth.User) -> None:
                 st.markdown(f"- {remedy.describe(entry)}")
 
 
+# --- Level 2: phases, what works, Phase Guide, Week Fit ----------------------------
+
+CONTRACEPTION_CAVEAT = (
+    "You've said you use hormonal contraception. That usually means there's no natural cycle "
+    "for these phases to describe, so Nova shows only your bleeding pattern here and keeps the "
+    "personal findings, Phase Guide and Plan my week switched off."
+)
+LIMITS = (
+    "These are patterns in your own logs, not causes: you choose what to do by feel (a good day "
+    "may lead to the walk, not the other way round), days close together affect each other, and "
+    "phases are calendar estimates."
+)
+
+
+@st.cache_data(show_spinner="Looking at what tends to go well…")
+def _analyse(days):
+    return whatworks.analyse(list(days))
+
+
+def level2_context(conn, user: auth.User, today: date) -> dict:
+    """Everything the Level 2 pages need, computed once per run."""
+    logs = db.get_logs(conn, user.id)
+    cycles = db.get_cycles(conn, user.id)
+    starts = db.get_period_starts(conn, user.id)
+    bleeding = [e.date for e in logs if e.flow in db.BLEEDING_FLOWS]
+    settings = db.get_settings(conn, user.id)
+    lengths = [c.length for c in cycles]
+    period_days = phases.typical_period_days(starts, bleeding)
+    status = gate.gate_status([e.date for e in logs], len(cycles), today)
+    personal = status.open and not settings.hormonal_contraception
+    results = _analyse(tuple(whatworks.rated_days(starts, logs, settings.luteal_days))) if personal else []
+    recent = lengths[-predict.MAX_CYCLES_USED:]
+    return dict(
+        logs=logs, cycles=cycles, settings=settings, gate=status, personal=personal,
+        current=phases.current_cycle(starts, bleeding, lengths, today, settings.luteal_days, period_days),
+        period_days=period_days, results=results, findings=whatworks.goes_well(results),
+        cycle_range=(min(recent), max(recent)) if recent else (0, 0),
+    )
+
+
+def _session_opt_in(settings: db.Settings, call_type: str) -> bool:
+    return settings.is_demo and st.session_state.get(DEMO_OPT_IN[call_type], False)
+
+
+def gate_card(ctx: dict) -> None:
+    with card("gate", tone="lavender"):
+        eyebrow("Your personal findings")
+        st.markdown("### Getting to know what works for you")
+        st.markdown(
+            "Nova learns what tends to go well for you in each phase from your own log — never "
+            "from generic tips. That needs about six months of logging first, so the patterns "
+            "are yours and not chance."
+        )
+        for c in ctx["gate"].conditions:
+            st.markdown(f"**{c.label.capitalize()}** — {min(c.have, c.need)} of {c.need}")
+            st.progress(min(1.0, c.have / c.need))
+        st.caption("Rating how each day went (on the Today page) is what these findings are built from.")
+
+
+def page_phases(conn, user: auth.User, today: date) -> None:
+    ctx = level2_context(conn, user, today)
+    settings, current = ctx["settings"], ctx["current"]
+
+    with card("phase-tracker", tone="blush"):
+        eyebrow("Your phases — estimates from your own cycles")
+        if settings.hormonal_contraception:
+            st.info(CONTRACEPTION_CAVEAT)
+        if current is None:
+            empty_state(icon="🌙", title="Your phases appear after your first period",
+                        body="Log a period on the Today page and Nova will start placing your phases.")
+        elif not current.enough_data:
+            st.markdown(f"### Day {current.day} of your cycle")
+            st.markdown("Period days come straight from your log. The other phases need "
+                        f"{predict.MIN_CYCLES} completed cycles before Nova can estimate them.")
+        elif current.late:
+            st.markdown(f"### Day {current.day} — luteal or a new period, not sure")
+            st.markdown("Your period is later than your usual range, so Nova won't guess the phase.")
+        else:
+            if current.phase_today == "ovulation_window":
+                st.markdown(f"### Day {current.day} · probably in your ovulation window")
+            else:
+                name = phases.PHASE_LABELS[current.phase_today].lower()
+                st.markdown(f"### Day {current.day} · probably your {name} phase")
+            st.markdown(
+                f"- Ovulation window (estimate): **{_fmt(current.ovulation_from)} – {_fmt(current.ovulation_to)}**\n"
+                f"- Luteal phase (estimate): from about **{_fmt(current.luteal_from)}**\n"
+                f"- Next period: between **{_fmt(current.next_earliest)}** and **{_fmt(current.next_latest)}**"
+            )
+            st.caption(
+                f"Counted back {phases.luteal(settings.luteal_days)} days from your predicted period "
+                "(the luteal half is the steadier one), so the windows are as wide as the uncertainty "
+                "in that prediction. You can change the luteal length in Settings."
+            )
+        medical_disclaimer()
+
+    if settings.hormonal_contraception:
+        return
+    if not ctx["gate"].open:
+        gate_card(ctx)
+        return
+
+    with card("what-works"):
+        eyebrow("What works for me, by phase")
+        tested = [r for r in ctx["results"] if r.tested]
+        shown = [r for r in tested if r.verdict != "no_clear_difference"]
+        if not tested:
+            empty_state(icon="🫶", title="Not enough rated days yet",
+                        body=f"A finding needs {whatworks.MIN_USES} days with a strategy in one phase, "
+                             f"over {whatworks.MIN_CYCLES} cycles. Keep rating your days on the Today page.")
+        for r in shown:
+            st.markdown(f"- {whatworks.describe(r)}")
+        if tested and not shown:
+            st.markdown("Nothing stands out clearly yet — that's an honest answer, not a failure.")
+        if tested:
+            waiting = sum(not r.tested for r in ctx["results"])
+            st.caption(f"Checked {len(tested)} strategy–phase pairs with enough data; "
+                       f"{waiting} still need more days. {LIMITS}")
+        medical_disclaimer()
+
+    with card("phase-guide", tone="lavender"):
+        eyebrow("Your Phase Guide")
+        cycle_start = ctx["cycles"][-1].start
+        session_opt_in = _session_opt_in(settings, "phase_guide")
+        guide = phase_guide.stored(conn, user.id, cycle_start)
+        may_write = phase_guide.allowed(settings, True, session_opt_in)
+        if guide is None and may_write and st.button("Write my Phase Guide", key="write_guide"):
+            guide = phase_guide.generate(conn, user.id, ctx["findings"], ctx["cycle_range"], cycle_start,
+                                         gate_open=True, session_opt_in=session_opt_in)
+        if guide is None:
+            guide = phase_guide.template(ctx["findings"], ctx["cycle_range"])
+            if not may_write:
+                st.caption("This is the plain version. Turn on the written Phase Guide in Settings if you'd like it.")
+        if guide.notice:
+            st.caption(guide.notice)
+        for name, text in guide.sections:
+            st.markdown(f"**{name}** — {text}")
+        st.markdown(guide.cycle_sentence)
+        if guide.source == "llm":
+            st.caption("Written by an AI assistant from your findings only, and checked by Nova before showing.")
+        medical_disclaimer()
+
+
+def page_week(conn, user: auth.User, today: date) -> None:
+    ctx = level2_context(conn, user, today)
+    settings = ctx["settings"]
+    if settings.hormonal_contraception:
+        with card("week-off"):
+            st.info(CONTRACEPTION_CAVEAT)
+        return
+    if not ctx["gate"].open:
+        gate_card(ctx)
+        return
+    plans = week_fit.plan_days(today, ctx["current"], ctx["period_days"], ctx["findings"], settings.luteal_days)
+    session_opt_in = _session_opt_in(settings, "week_fit")
+    opted_in = week_fit.allowed(settings, True, session_opt_in)
+
+    with card("week", tone="blush"):
+        eyebrow("Plan my week")
+        st.markdown("### Fitting what works for you around your real week")
+        if not opted_in:
+            st.caption("This is the plain version from your findings. To fit them around notes about your "
+                       "week, turn on Plan my week in Settings.")
+            result = week_fit.template(plans)
+        else:
+            st.caption(week_fit.NOTICE)
+            with st.form("week_notes"):
+                notes = [
+                    st.text_input(p.day_name, max_chars=week_fit.MAX_NOTE_CHARS,
+                                  placeholder="e.g. report due, early lecture", key=f"note_{k}")
+                    for k, p in enumerate(plans)
+                ]
+                submitted = st.form_submit_button("Fit my week", type="primary")
+            result = st.session_state.get("week_fit_result")
+            if submitted:
+                try:
+                    result = week_fit.generate(conn, user.id, plans, notes, gate_open=True,
+                                               session_opt_in=session_opt_in)
+                    st.session_state["week_fit_result"] = result  # this tab only; never stored
+                except week_fit.NoteRejected as exc:
+                    st.error(str(exc))
+                    result = None
+            if result is None or [d.day_name for d in result.days] != [p.day_name for p in plans]:
+                result = week_fit.template(plans)
+        if result.notice:
+            st.caption(result.notice)
+        for plan, day in zip(plans, result.days):
+            where = " or ".join(phase_guide.PHASE_NAMES[b].lower() for b in phases.BUCKETS
+                                if plan.buckets and b in plan.buckets) or "phase unknown"
+            st.markdown(f"**{day.day_name}** · *{where} (estimate)*")
+            if day.note:
+                st.caption(f"Your note: {day.note}")
+            st.markdown(day.sentence)
+        medical_disclaimer()
+
+
 def page_qna() -> None:
     with card("qna-intro", tone="blush"):
         eyebrow("Did you know?")
@@ -357,6 +588,50 @@ def page_shared(conn, user: auth.User, today: date) -> None:
             st.plotly_chart(fig, use_container_width=True, key="chart_partner")
 
 
+def level2_settings_card(conn, user: auth.User) -> None:
+    settings = db.get_settings(conn, user.id)
+    with card("cycle-settings"):
+        eyebrow("Phases and personal findings")
+        if settings.is_demo:
+            st.caption("In the demo, these switches only last for this browser tab.")
+            labels = {
+                "phase_guide": "Written Phase Guide (sends your findings — labels only — to Anthropic)",
+                "week_fit": "Plan my week (sends your notes for the week to Anthropic)",
+            }
+            for call_type, label in labels.items():
+                key = DEMO_OPT_IN[call_type]
+                # Widget state is dropped once the widget isn't drawn (another
+                # page), so the choice is copied to a plain session key.
+                st.session_state[key] = st.toggle(label, value=st.session_state.get(key, False), key=f"w_{key}")
+            st.caption(week_fit.NOTICE)
+            return
+        with st.form("cycle_settings"):
+            options = [None, *range(db.LUTEAL_DAYS_RANGE[0], db.LUTEAL_DAYS_RANGE[1] + 1)]
+            luteal = st.selectbox(
+                "Luteal phase length (days from ovulation to your period)", options,
+                index=options.index(settings.luteal_days),
+                format_func=lambda v: f"Default ({predict.LUTEAL_DAYS})" if v is None else str(v),
+                help="Only change this if you know yours, e.g. from ovulation tests. It moves the "
+                     "fertile-window estimate and your phases together.",
+                key="setting_luteal",
+            )
+            contraception = st.toggle("I use hormonal contraception", value=settings.hormonal_contraception,
+                                      key="setting_contraception")
+            guide = st.toggle(
+                "Written Phase Guide",
+                value=settings.phase_guide_opt_in, key="setting_guide",
+                help="Sends only phase names, strategy names and how strong the evidence is "
+                     "(plus your shortest and longest cycle length) to Anthropic to write them up.",
+            )
+            week = st.toggle("Plan my week", value=settings.week_fit_opt_in, key="setting_week",
+                             help=week_fit.NOTICE)
+            st.caption(f"Plan my week: {week_fit.NOTICE}")
+            if st.form_submit_button("Save"):
+                db.update_settings(conn, user.id, luteal_days=luteal, hormonal_contraception=contraception,
+                                   phase_guide_opt_in=guide, week_fit_opt_in=week)
+                st.toast("Saved.")
+
+
 def page_settings(conn, user: auth.User) -> None:
     with card("account"):
         eyebrow("Account")
@@ -364,6 +639,13 @@ def page_settings(conn, user: auth.User) -> None:
         if st.button("Log out", key="logout"):
             auth.end_session()
             st.rerun()
+
+    level2_settings_card(conn, user)
+
+    if demo.is_demo(conn, user.id):
+        with card("demo-settings"):
+            st.caption("The demo account can't be shared, exported or deleted — it's sample data.")
+        return
 
     with card("sharing"):
         eyebrow("Partner sharing")
@@ -443,9 +725,14 @@ def main() -> None:
             with st.sidebar:
                 st.markdown("### 🌙 Nova")
                 page = st.radio("Pages", PAGES, key="nav", label_visibility="collapsed")
+            if demo.is_demo(conn, user.id):
+                with card("demo-banner", tone="lavender"):
+                    st.markdown(f"**{demo.BANNER}**")
             {
                 "Today": lambda: page_today(conn, user, today),
                 "Home": lambda: page_home(conn, user, today),
+                "My phases": lambda: page_phases(conn, user, today),
+                "Plan my week": lambda: page_week(conn, user, today),
                 "Cycle Trends": lambda: page_trends(conn, user),
                 "Insights": lambda: page_insights(conn, user),
                 "Did You Know?": page_qna,

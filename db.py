@@ -211,7 +211,14 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
         for table, column, decl in NEW_COLUMNS:
             existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if column not in existing:
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+                except sqlite3.OperationalError as exc:
+                    # Another connection added it between our check and now
+                    # (two sessions starting right after a deploy).
+                    if "duplicate column" not in str(exc):
+                        raise
+                    continue
                 added.append(f"{table}.{column}")
     return added
 

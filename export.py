@@ -314,6 +314,30 @@ def export_my_data(conn: sqlite3.Connection, user_id: int) -> bytes:
             [[r.date.isoformat(), r.symptom, r.remedy, r.relief_rating]
              for r in db.get_remedies(conn, user_id)],
         ),
+        # Level 2 (spec.md Feature 7): in the full export, never the doctor one.
+        "what_works_log.csv": _csv(
+            ["date", "day_rating", "energy", "strategies"],
+            [[e.date.isoformat(), "" if e.day_rating is None else e.day_rating,
+              "" if e.energy is None else e.energy, "; ".join(sorted(e.strategies))]
+             for e in logs if e.day_rating is not None or e.energy is not None or e.strategies],
+        ),
+        "settings.json": json.dumps(
+            {k: v for k, v in vars(db.get_settings(conn, user_id)).items() if k != "is_demo"}, indent=2,
+        ),
+        "phase_guide.csv": _csv(
+            ["cycle_start", "created_at", "guide_json"],
+            [list(row) for row in conn.execute(
+                "SELECT cycle_start, created_at, guide_json FROM phase_guide WHERE user_id = ? ORDER BY cycle_start",
+                (user_id,),
+            )],
+        ),
+        "llm_usage.csv": _csv(
+            ["day", "call_type", "count"],
+            [list(row) for row in conn.execute(
+                "SELECT day, call_type, count FROM llm_usage WHERE user_id = ? ORDER BY day, call_type",
+                (user_id,),
+            )],
+        ),
         "partner_links.csv": _csv(
             ["role", "other_person", "status", "created_at", "accepted_at", "revoked_at"],
             [

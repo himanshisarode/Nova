@@ -210,6 +210,8 @@ def test_export_my_data_contains_everything(conn, users):
     files = _zip(conn, a)
     assert set(files) == {
         "account.json", "daily_log.csv", "cycles.csv", "partner_links.csv", "remedy_log.csv",
+        # Level 2 (spec.md Feature 7)
+        "what_works_log.csv", "settings.json", "phase_guide.csv", "llm_usage.csv",
     }
 
     account = json.loads(files["account.json"])

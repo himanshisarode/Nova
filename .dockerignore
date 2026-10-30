@@ -8,3 +8,4 @@ design_preview
 *.db-journal
 transcript.md
 fly.toml
+.env
