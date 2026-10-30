@@ -12,7 +12,9 @@ import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
 CSS_PATH = Path(__file__).parent / "assets" / "nova.css"
-CARD_TONES = ("plain", "blush", "lavender")
+# plain = white card; blush/lavender = tinted; open = no box at all, so not
+# every section is a white rectangle (used for page intros).
+CARD_TONES = ("plain", "blush", "lavender", "open")
 
 # SPEC.md "Medical disclaimer", word for word — tests/test_theme.py checks
 # this against the spec so the two can't drift apart.
@@ -48,9 +50,16 @@ def card(name: str, tone: str = "plain") -> DeltaGenerator:
     return st.container(key=f"{prefix}-{name}")
 
 
-def eyebrow(text: str) -> None:
-    """Small uppercase label above a card's title."""
-    st.html(f'<div class="nova-eyebrow">{escape(text)}</div>')
+def icon_html(name: str) -> str:
+    """A Material Symbols (rounded) line icon — the same font Streamlit uses
+    for `:material/...:` in the sidebar, so the two styles match."""
+    return f'<span class="nova-icon" aria-hidden="true">{escape(name)}</span>'
+
+
+def eyebrow(text: str, icon: str | None = None) -> None:
+    """Small uppercase label above a card's title, with an optional icon."""
+    mark = icon_html(icon) if icon else ""
+    st.html(f'<div class="nova-eyebrow">{mark}{escape(text)}</div>')
 
 
 def medical_disclaimer() -> None:

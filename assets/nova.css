@@ -15,9 +15,10 @@
   --nova-ink: #B5627A; /* eyebrow labels, small accents */
   --nova-tint: #FFF1F3; /* tinted cards */
   --nova-tint-2: #F7F0FB;
-  --nova-shadow: 0 6px 24px rgba(180, 120, 135, 0.12), 0 1px 3px rgba(180, 120, 135, 0.08);
-  --nova-shadow-lift: 0 10px 32px rgba(180, 120, 135, 0.18), 0 2px 6px rgba(180, 120, 135, 0.10);
-  --nova-radius: 22px;
+  /* Soft, wide, low shadows: cards float a little instead of sitting in boxes. */
+  --nova-shadow: 0 10px 34px rgba(180, 120, 135, 0.09), 0 1px 2px rgba(180, 120, 135, 0.06);
+  --nova-shadow-lift: 0 14px 40px rgba(180, 120, 135, 0.14), 0 2px 4px rgba(180, 120, 135, 0.08);
+  --nova-radius: 26px;
 }
 
 /* Page: cream with two very faint blush/lavender glows, like paper in warm light. */
@@ -36,7 +37,7 @@ header[data-testid="stHeader"] { background: transparent; }
   padding-top: 3.5rem;
   padding-bottom: 5rem;
 }
-[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] { gap: 1.25rem; }
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] { gap: 1.5rem; }
 
 h1, h2, h3 { letter-spacing: -0.01em; color: var(--nova-charcoal); }
 p, li, label { line-height: 1.65; }
@@ -46,7 +47,8 @@ p, li, label { line-height: 1.65; }
   background: var(--nova-card);
   border-radius: var(--nova-radius);
   box-shadow: var(--nova-shadow);
-  padding: 1.75rem 1.9rem;
+  padding: 2rem 2.2rem;
+  border: 1px solid rgba(246, 198, 206, 0.35);
   transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 [class*="st-key-nova-card"]:hover { box-shadow: var(--nova-shadow-lift); }
@@ -54,6 +56,45 @@ p, li, label { line-height: 1.65; }
 /* Tinted cards for gentle emphasis. */
 [class*="st-key-nova-card-blush"] { background: linear-gradient(135deg, var(--nova-tint), var(--nova-card)); }
 [class*="st-key-nova-card-lavender"] { background: linear-gradient(135deg, var(--nova-tint-2), var(--nova-card)); }
+
+/* Open sections: no box, straight on the page (page intros). */
+[class*="st-key-nova-card-open"] {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  padding: 0.5rem 0.25rem 0;
+}
+[class*="st-key-nova-card-open"]:hover { box-shadow: none; }
+
+/* The demo banner is a slim note, not a big card. */
+[class*="st-key-nova-card-lavender-demo-banner"] {
+  padding: 0.75rem 1.5rem;
+  min-height: 3.2rem;
+  justify-content: center;
+  border-radius: 999px;
+  box-shadow: none;
+}
+[class*="st-key-nova-card-lavender-demo-banner"] [data-testid="stVerticalBlock"] { gap: 0; }
+[class*="st-key-nova-card-lavender-demo-banner"] p { font-size: 0.9rem; margin: 0; line-height: 1.5; }
+
+/* Sidebar navigation reads as a menu: no radio dots, the current page in a soft pill. */
+[data-testid="stSidebar"] [role="radiogroup"] { gap: 0.15rem; }
+[data-testid="stSidebar"] [role="radiogroup"] > div { width: 100%; }
+[data-testid="stSidebar"] [role="radiogroup"] label {
+  width: 100%;
+  margin: 0;
+  padding: 0.45rem 0.8rem;
+  border-radius: 14px;
+  transition: background 0.2s ease;
+}
+[data-testid="stSidebar"] label[data-testid="stRadioOption"] > div > div:first-child { display: none; }
+[data-testid="stSidebar"] [role="radiogroup"] label:hover { background: rgba(255, 255, 255, 0.55); }
+[data-testid="stSidebar"] [role="radiogroup"] label[data-selected="true"] {
+  background: var(--nova-card);
+  box-shadow: 0 4px 14px rgba(180, 120, 135, 0.10);
+}
+[data-testid="stSidebar"] [role="radiogroup"] label[data-selected="true"] p { color: var(--nova-ink); font-weight: 700; }
+[data-testid="stSidebar"] [role="radiogroup"] label p { font-size: 0.97rem; }
 
 /* Metrics read as little stat tiles. */
 [data-testid="stMetric"] {
@@ -132,14 +173,39 @@ p, li, label { line-height: 1.65; }
 }
 .nova-empty .nova-progress-label { color: var(--nova-muted); font-size: 0.85rem; margin-top: 0.4rem; }
 
-/* Small eyebrow label above card titles. */
+/* Small eyebrow label above card titles, with a line icon in a soft dot. */
+.nova-icon {
+  font-family: "Material Symbols Rounded";
+  font-weight: 400;
+  font-style: normal;
+  font-size: 1.05rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+.nova-eyebrow .nova-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  margin-right: 0.6rem;
+  border-radius: 50%;
+  background: var(--nova-blush-soft);
+  color: var(--nova-ink);
+}
 .nova-eyebrow {
+  display: flex;
+  align-items: center;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--nova-ink);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Medical disclaimer (SPEC.md): calm, readable, never hidden. */

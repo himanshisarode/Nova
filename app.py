@@ -60,7 +60,7 @@ def _label(name: str) -> str:
 def prediction_card(name: str, lengths: list[int], last_start: date | None, today: date, mode: str) -> None:
     """Next-period card (own Home page and the partner view)."""
     with card(name, tone="blush"):
-        eyebrow("Next period")
+        eyebrow("Next period", icon="water_drop")
         if last_start is None or len(lengths) < predict.MIN_CYCLES:
             empty_state(
                 icon="🌙",
@@ -104,8 +104,8 @@ def mode_toggle() -> str:
 # --- pages ----------------------------------------------------------------------
 
 def page_login(conn) -> None:
-    with card("welcome", tone="blush"):
-        st.markdown("# 🌙 Nova")
+    with card("welcome", tone="open"):
+        st.markdown("# :material/bedtime: Nova")
         st.markdown("Your cycle, gently tracked — with predictions that are honest about what they know.")
     with card("auth"):
         log_in, sign_up = st.tabs(["Log in", "Create account"])
@@ -140,13 +140,13 @@ def page_login(conn) -> None:
 
 
 def page_today(conn, user: auth.User, today: date) -> None:
-    with card("welcome", tone="blush"):
-        eyebrow(today.strftime("%A, %d %B"))
+    with card("welcome", tone="open"):
+        eyebrow(today.strftime("%A, %d %B"), icon="sunny")
         st.markdown(f"# Hi {user.display_name} 🌸")
         st.markdown("Logging takes about a minute, and every entry helps Nova know your rhythm a little better.")
 
     with card("log"):
-        eyebrow("Check-in")
+        eyebrow("Check-in", icon="edit_note")
         day = st.date_input("Which day?", value=today, max_value=today, key="log_day")
         existing = db.get_log(conn, user.id, day) or db.LogEntry(day)
         k = day.isoformat()  # fresh widgets per day, pre-filled from that day's log
@@ -215,8 +215,8 @@ def page_home(conn, user: auth.User, today: date) -> None:
     lengths = [c.length for c in cycles]
     last = starts[-1] if starts else None
 
-    with card("glance"):
-        eyebrow("At a glance")
+    with card("glance", tone="open"):
+        eyebrow("At a glance", icon="spa")
         st.markdown(f"### Welcome back, {user.display_name}")
         c1, c2 = st.columns(2)
         c1.metric("Cycle day", (today - last).days + 1 if last else "—")
@@ -226,7 +226,7 @@ def page_home(conn, user: auth.User, today: date) -> None:
     prediction_card("prediction", lengths, last, today, mode)
 
     with card("fertile", tone="lavender"):
-        eyebrow("Fertile window — an estimate, not contraception")
+        eyebrow("Fertile window — an estimate, not contraception", icon="eco")
         if last is None or len(lengths) < predict.MIN_CYCLES:
             empty_state(
                 icon="🌿", title="Not enough cycles yet",
@@ -261,7 +261,7 @@ def page_trends(conn, user: auth.User) -> None:
     report = export.build_doctor_report(conn, user.id, months=None)
 
     with card("trend-length"):
-        eyebrow("Cycle length")
+        eyebrow("Cycle length", icon="monitoring")
         fig = charts.cycle_length_chart(assessments)
         if fig is None:
             empty_state(icon="📈", title="Your first chart is on its way",
@@ -272,7 +272,7 @@ def page_trends(conn, user: auth.User) -> None:
         medical_disclaimer()
 
     with card("trend-period"):
-        eyebrow("Period length")
+        eyebrow("Period length", icon="water_drop")
         fig = charts.period_length_chart([r.start for r in report.rows], [r.period_days for r in report.rows])
         if fig is None:
             empty_state(icon="🩸", title="Nothing to show just yet",
@@ -281,7 +281,7 @@ def page_trends(conn, user: auth.User) -> None:
             st.plotly_chart(fig, use_container_width=True, key="chart_period")
 
     with card("trend-symptoms"):
-        eyebrow("Symptoms")
+        eyebrow("Symptoms", icon="healing")
         fig = charts.symptom_frequency_chart(report.symptom_share())
         if fig is None:
             empty_state(icon="🫶", title="No symptoms logged in completed cycles yet",
@@ -302,7 +302,7 @@ def page_insights(conn, user: auth.User) -> None:
     flagged = [a for a in assessments if a.irregular]
 
     with card("flags"):
-        eyebrow("Irregular cycles")
+        eyebrow("Irregular cycles", icon="flag")
         if not cycles:
             empty_state(icon="🌱", title="Still getting to know you",
                         body="Once cycles are complete, Nova checks each one against the typical range and your own usual.")
@@ -325,7 +325,7 @@ def page_insights(conn, user: auth.User) -> None:
         medical_disclaimer()
 
     with card("links", tone="lavender"):
-        eyebrow("Lifestyle links")
+        eyebrow("Lifestyle links", icon="link")
         rows = lifestyle_link.cycles_with_tags(cycles, logs)
         for tag, result in lifestyle_link.all_links(rows).items():
             if result["status"] == "not_enough_data":
@@ -337,7 +337,7 @@ def page_insights(conn, user: auth.User) -> None:
         st.caption("A link here is a pattern in your own logs, not proof of a cause.")
 
     with card("remedies"):
-        eyebrow("What helps")
+        eyebrow("What helps", icon="self_care")
         logs_for_stats = [
             {"symptom": r.symptom, "remedy": r.remedy, "relief_rating": r.relief_rating}
             for r in db.get_remedies(conn, user.id)
@@ -399,7 +399,7 @@ def _session_opt_in(settings: db.Settings, call_type: str) -> bool:
 
 def gate_card(ctx: dict) -> None:
     with card("gate", tone="lavender"):
-        eyebrow("Your personal findings")
+        eyebrow("Your personal findings", icon="hourglass_empty")
         st.markdown("### Getting to know what works for you")
         st.markdown(
             "Nova learns what tends to go well for you in each phase from your own log — never "
@@ -417,7 +417,7 @@ def page_phases(conn, user: auth.User, today: date) -> None:
     settings, current = ctx["settings"], ctx["current"]
 
     with card("phase-tracker", tone="blush"):
-        eyebrow("Your phases — estimates from your own cycles")
+        eyebrow("Your phases — estimates from your own cycles", icon="dark_mode")
         if settings.hormonal_contraception:
             st.info(CONTRACEPTION_CAVEAT)
         if current is None:
@@ -455,7 +455,7 @@ def page_phases(conn, user: auth.User, today: date) -> None:
         return
 
     with card("what-works"):
-        eyebrow("What works for me, by phase")
+        eyebrow("What works for me, by phase", icon="auto_awesome")
         tested = [r for r in ctx["results"] if r.tested]
         shown = [r for r in tested if r.verdict != "no_clear_difference"]
         if not tested:
@@ -473,7 +473,7 @@ def page_phases(conn, user: auth.User, today: date) -> None:
         medical_disclaimer()
 
     with card("phase-guide", tone="lavender"):
-        eyebrow("Your Phase Guide")
+        eyebrow("Your Phase Guide", icon="auto_stories")
         cycle_start = ctx["cycles"][-1].start
         session_opt_in = _session_opt_in(settings, "phase_guide")
         guide = phase_guide.stored(conn, user.id, cycle_start)
@@ -510,7 +510,7 @@ def page_week(conn, user: auth.User, today: date) -> None:
     opted_in = week_fit.allowed(settings, True, session_opt_in)
 
     with card("week", tone="blush"):
-        eyebrow("Plan my week")
+        eyebrow("Plan my week", icon="calendar_month")
         st.markdown("### Fitting what works for you around your real week")
         if not opted_in:
             st.caption("This is the plain version from your findings. To fit them around notes about your "
@@ -549,8 +549,8 @@ def page_week(conn, user: auth.User, today: date) -> None:
 
 
 def page_qna() -> None:
-    with card("qna-intro", tone="blush"):
-        eyebrow("Did you know?")
+    with card("qna-intro", tone="open"):
+        eyebrow("Did you know?", icon="lightbulb")
         st.markdown("### Common questions, gently answered")
     if not qna_content.QNA:
         with card("qna-empty"):
@@ -590,7 +590,7 @@ def page_shared(conn, user: auth.User, today: date) -> None:
     st.caption(f"You're viewing {names[owner]}'s cycle, read-only.")
     prediction_card("partner-prediction", [c.length for c in cycles], last, today, mode_toggle())
     with card("partner-trends"):
-        eyebrow("Cycle Trends")
+        eyebrow("Cycle Trends", icon="monitoring")
         fig = charts.cycle_length_chart(irregularity.assess_cycles(cycles), show_flags=False)
         if fig is None:
             empty_state(icon="📈", title="No completed cycles yet", body="Their chart appears once a cycle is complete.")
@@ -601,7 +601,7 @@ def page_shared(conn, user: auth.User, today: date) -> None:
 def level2_settings_card(conn, user: auth.User) -> None:
     settings = db.get_settings(conn, user.id)
     with card("cycle-settings"):
-        eyebrow("Phases and personal findings")
+        eyebrow("Phases and personal findings", icon="tune")
         if settings.is_demo:
             st.caption("In the demo, these switches only last for this browser tab.")
             labels = {
@@ -644,7 +644,7 @@ def level2_settings_card(conn, user: auth.User) -> None:
 
 def page_settings(conn, user: auth.User) -> None:
     with card("account"):
-        eyebrow("Account")
+        eyebrow("Account", icon="person")
         st.markdown(f"**{user.display_name}** · {user.email}")
         if st.button("Log out", key="logout"):
             auth.end_session()
@@ -658,7 +658,7 @@ def page_settings(conn, user: auth.User) -> None:
         return
 
     with card("sharing"):
-        eyebrow("Partner sharing")
+        eyebrow("Partner sharing", icon="group")
         st.caption("Sharing is one-way and read-only: they see your dashboard, trends and predictions — "
                    "never your daily logs or remedies. You can stop sharing any time.")
         if st.button("Create an invite code", key="new_invite"):
@@ -685,7 +685,7 @@ def page_settings(conn, user: auth.User) -> None:
                     st.error(str(exc))
 
     with card("doctor"):
-        eyebrow("For your doctor")
+        eyebrow("For your doctor", icon="stethoscope")
         choice = st.selectbox("Period", list(export.RANGE_CHOICES),
                               index=list(export.RANGE_CHOICES).index(export.DEFAULT_RANGE), key="doctor_range")
         report = export.build_doctor_report(conn, user.id, export.RANGE_CHOICES[choice])
@@ -697,7 +697,7 @@ def page_settings(conn, user: auth.User) -> None:
         st.caption("A cycle-level summary: no mood, lifestyle tags or remedies.")
 
     with card("my-data"):
-        eyebrow("Your data")
+        eyebrow("Your data", icon="download")
         st.download_button("Download everything (ZIP)", export.export_my_data(conn, user.id),
                            "nova-my-data.zip", "application/zip", key="dl_zip")
         with st.expander("Delete all my data"):
