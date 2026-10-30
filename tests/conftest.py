@@ -64,6 +64,7 @@ class FakeProvider:
         self.status = 200
         self.raw_text = None  # overrides `reply` with arbitrary text
         self.stop_reason = "end_turn"
+        self.reply_fn = None  # payload dict → reply dict, for replies that depend on the request
 
     def handler(self, request):
         import json
@@ -73,7 +74,10 @@ class FakeProvider:
         self.requests.append(json.loads(request.content))
         if self.status != 200:
             return httpx2.Response(self.status, json={"type": "error", "error": {"type": "api_error", "message": "x"}})
-        text = self.raw_text if self.raw_text is not None else json.dumps(self.reply)
+        if self.reply_fn is not None:
+            text = json.dumps(self.reply_fn(json.loads(self.requests[-1]["messages"][0]["content"])))
+        else:
+            text = self.raw_text if self.raw_text is not None else json.dumps(self.reply)
         return httpx2.Response(200, json={
             "id": "msg_test", "type": "message", "role": "assistant", "model": "claude-opus-5-5",
             "content": [{"type": "text", "text": text}], "stop_reason": self.stop_reason,

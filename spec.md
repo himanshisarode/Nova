@@ -648,6 +648,14 @@ Deferred from v2's original scope to keep the two-week build realistic.
 Described here so they're not lost; each needs its own spec pass before
 it's started.
 
+- **Week Fit evaluation results** — the script and the 15 sample weeks
+  exist (scripts/eval_week_fit.py, eval/week_fit_samples.json, Phase 16)
+  and are tested with a fake provider, but they have NOT been run against
+  the real provider: that needs the API key, costs a little, and the
+  sensible-fit rate needs the owner's marks. README shows "not yet run"
+  until then. The LLM layer acceptance item "its results are in
+  README.md" stays unticked.
+
 Explain My Trend (Feature 8) is no longer here: it was dropped, not
 deferred. The LLM layer (see "LLM layer (Level 2)") replaces it, and its
 job is now one sentence inside Phase Guide. There is no separate

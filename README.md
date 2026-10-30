@@ -168,6 +168,26 @@ these from the `nnova` folder on the `level2` branch.
 the new columns and tables, so the database doesn't need restoring; the
 snapshot from step 1 is there if it ever does.
 
+## Week Fit evaluation
+
+`scripts/eval_week_fit.py` runs 15 hand-built weeks (`eval/week_fit_samples.json`,
+including notes that try to inject instructions) through the real Week Fit code
+path against the real provider, then you mark each suggestion as respecting
+that day's note or not:
+
+```bash
+python scripts/eval_week_fit.py run     # needs ANTHROPIC_API_KEY; ~15 small calls
+# fill in the "sensible" column of eval/week_fit_marks.csv (1 or 0)
+python scripts/eval_week_fit.py score
+```
+
+| Measure | Result |
+|---|---|
+| (a) Raw reply passed validation with no fallback | **not yet run** |
+| (b) Sensible-fit rate (owner's marks) | **not yet run** |
+
+Informational only: 15 weeks is a small sample.
+
 ## Tests
 
 ```bash

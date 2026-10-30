@@ -336,6 +336,9 @@ can't be baked into the image.
   sheet for the owner's sensible-fit marks; numbers go in README with
   the small-sample caveat
 - If not reached: SPEC.md lists it under "Not yet built"
+Status: script, samples and a fake-provider test are built; the real run
+(and so the README numbers) is NOT done — it needs the key and the
+owner's marks. SPEC.md "Not yet built" says so.
 
 ## Risks / ambiguities
 - Phase 2/3 depend on definitions that used to be inherited from v1 and
