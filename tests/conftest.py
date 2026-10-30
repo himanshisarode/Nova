@@ -50,3 +50,52 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect_ex", guard_connect_ex)
     monkeypatch.setattr(socket, "getaddrinfo", guard_getaddrinfo)
     monkeypatch.setattr(socket, "create_connection", guard_create_connection)
+
+
+# --- Level 2: a fake LLM provider at the HTTP layer ----------------------------
+# The real Anthropic SDK builds and "sends" the request; a MockTransport
+# answers it. So tests see the exact request body that would leave the
+# machine, and no socket is ever opened.
+
+class FakeProvider:
+    def __init__(self):
+        self.requests: list[dict] = []
+        self.reply = None  # dict → sent as the model's JSON text
+        self.status = 200
+        self.raw_text = None  # overrides `reply` with arbitrary text
+        self.stop_reason = "end_turn"
+
+    def handler(self, request):
+        import json
+
+        import httpx2
+
+        self.requests.append(json.loads(request.content))
+        if self.status != 200:
+            return httpx2.Response(self.status, json={"type": "error", "error": {"type": "api_error", "message": "x"}})
+        text = self.raw_text if self.raw_text is not None else json.dumps(self.reply)
+        return httpx2.Response(200, json={
+            "id": "msg_test", "type": "message", "role": "assistant", "model": "claude-opus-5-5",
+            "content": [{"type": "text", "text": text}], "stop_reason": self.stop_reason,
+            "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 1},
+        })
+
+    def user_payload(self, i: int = -1) -> dict:
+        import json
+
+        return json.loads(self.requests[i]["messages"][0]["content"])
+
+
+@pytest.fixture
+def fake_llm(monkeypatch, no_network):
+    import anthropic
+    import httpx2
+
+    import llm
+
+    fake = FakeProvider()
+    monkeypatch.setenv(llm.API_KEY_ENV, "test-key-not-real")
+    monkeypatch.setattr(llm, "MAX_RETRIES", 0)
+    llm.set_http_client(anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(fake.handler)))
+    yield fake
+    llm.set_http_client(None)
