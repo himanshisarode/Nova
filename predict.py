@@ -132,14 +132,21 @@ def is_late(prediction: SimplePrediction | HonestPrediction, today: date) -> boo
     return today > latest
 
 
-def fertile_window(prediction: SimplePrediction | HonestPrediction) -> FertileWindow:
-    """Estimated fertile window for the current cycle."""
+def fertile_window(
+    prediction: SimplePrediction | HonestPrediction, luteal_days: int | None = None
+) -> FertileWindow:
+    """Estimated fertile window for the current cycle.
+
+    `luteal_days` is the user's setting (spec.md Feature 3); None means
+    the default LUTEAL_DAYS, exactly as before the setting existed.
+    """
+    luteal = LUTEAL_DAYS if luteal_days is None else luteal_days
     if isinstance(prediction, HonestPrediction):
         earliest, latest = prediction.earliest, prediction.latest
     else:
         earliest = latest = prediction.next_start
-    ov_earliest = earliest - timedelta(days=LUTEAL_DAYS)
-    ov_latest = latest - timedelta(days=LUTEAL_DAYS)
+    ov_earliest = earliest - timedelta(days=luteal)
+    ov_latest = latest - timedelta(days=luteal)
     return FertileWindow(
         start=ov_earliest - timedelta(days=FERTILE_DAYS_BEFORE),
         end=ov_latest + timedelta(days=FERTILE_DAYS_AFTER),

@@ -35,6 +35,14 @@ SYMPTOMS: tuple[str, ...] = (
 )
 LIFESTYLE_TAGS: tuple[str, ...] = ("poor_sleep", "high_stress", "travel")
 MOOD_RANGE = (1, 5)
+# Level 2 "what works for me" log (spec.md Data, Feature 18). Fixed list:
+# things a person does, nothing about food, calories or weight.
+STRATEGIES: tuple[str, ...] = (
+    "walk", "yoga", "strength", "cardio", "rest_day",
+    "deep_focus_work", "light_admin", "social_plans", "early_night", "journaling",
+)
+RATING_RANGE = (1, 5)  # day_rating ("how did today go") and energy
+LUTEAL_DAYS_RANGE = (10, 17)
 # A bleeding day starts a new period only if the PERIOD_GAP_DAYS days
 # before it were all non-bleeding (no log, no flow, or spotting); shorter
 # pauses are the same period (spec.md Data, "Period rule").
@@ -90,7 +98,46 @@ CREATE TABLE IF NOT EXISTS cycle (
     length     INTEGER NOT NULL CHECK (length > 0),
     PRIMARY KEY (user_id, start_date)
 );
+CREATE TABLE IF NOT EXISTS daily_strategy (
+    user_id  INTEGER NOT NULL,
+    date     TEXT NOT NULL,
+    strategy TEXT NOT NULL CHECK (strategy IN ({_sql_list(STRATEGIES)})),
+    PRIMARY KEY (user_id, date, strategy),
+    FOREIGN KEY (user_id, date) REFERENCES daily_log(user_id, date) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id                INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    luteal_days            INTEGER CHECK (luteal_days BETWEEN {LUTEAL_DAYS_RANGE[0]} AND {LUTEAL_DAYS_RANGE[1]}),
+    hormonal_contraception INTEGER CHECK (hormonal_contraception IN (0, 1)),
+    phase_guide_opt_in     INTEGER CHECK (phase_guide_opt_in IN (0, 1)),
+    week_fit_opt_in        INTEGER CHECK (week_fit_opt_in IN (0, 1)),
+    is_demo                INTEGER CHECK (is_demo IN (0, 1))
+);
+CREATE TABLE IF NOT EXISTS phase_guide (
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cycle_start TEXT NOT NULL,
+    guide_json  TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (user_id, cycle_start)
+);
+CREATE TABLE IF NOT EXISTS llm_usage (
+    user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day       TEXT NOT NULL,
+    call_type TEXT NOT NULL,
+    count     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day, call_type)
+);
 """
+
+# Level 2 columns on existing tables. Added by migrate() — never part of a
+# CREATE TABLE, so new and upgraded databases take exactly the same path.
+# All nullable: existing rows simply have no value.
+NEW_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("daily_log", "day_rating",
+     f"INTEGER CHECK (day_rating BETWEEN {RATING_RANGE[0]} AND {RATING_RANGE[1]})"),
+    ("daily_log", "energy",
+     f"INTEGER CHECK (energy BETWEEN {RATING_RANGE[0]} AND {RATING_RANGE[1]})"),
+)
 
 
 @dataclass(frozen=True)
@@ -104,6 +151,11 @@ class LogEntry:
     poor_sleep: bool = False
     high_stress: bool = False
     travel: bool = False
+    # Level 2 "what works for me" (all optional; appended so positional
+    # construction of the fields above is unchanged).
+    day_rating: int | None = None
+    energy: int | None = None
+    strategies: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
         if self.flow is not None and self.flow not in FLOW_LEVELS:
@@ -114,6 +166,14 @@ class LogEntry:
         if unknown:
             raise ValueError(f"unknown symptoms {sorted(unknown)}; allowed: {SYMPTOMS}")
         object.__setattr__(self, "symptoms", frozenset(self.symptoms))
+        for name in ("day_rating", "energy"):
+            value = getattr(self, name)
+            if value is not None and not RATING_RANGE[0] <= value <= RATING_RANGE[1]:
+                raise ValueError(f"{name} must be between {RATING_RANGE[0]} and {RATING_RANGE[1]}, got {value}")
+        unknown = set(self.strategies) - set(STRATEGIES)
+        if unknown:
+            raise ValueError(f"unknown strategies {sorted(unknown)}; allowed: {STRATEGIES}")
+        object.__setattr__(self, "strategies", frozenset(self.strategies))
 
     @property
     def tags(self) -> frozenset[str]:
@@ -136,6 +196,24 @@ def init_schema(conn: sqlite3.Connection) -> None:
     """Create every table (users first, since the others reference it)."""
     auth.init_schema(conn)
     conn.executescript(SCHEMA)
+    migrate(conn)
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    """Bring an older database up to the current schema, additively.
+
+    Only adds what's missing (new tables come from SCHEMA's CREATE TABLE
+    IF NOT EXISTS; new columns are added here). Never rewrites, copies or
+    deletes a row. Safe to run on every connect. Returns what it added.
+    """
+    added = []
+    with conn:
+        for table, column, decl in NEW_COLUMNS:
+            existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+                added.append(f"{table}.{column}")
+    return added
 
 
 def connect(path: Path | str | None = None) -> sqlite3.Connection:
@@ -168,9 +246,13 @@ def delete_account(conn: sqlite3.Connection, user_id: int, confirm_email: str) -
         raise ValueError("That email doesn't match this account — nothing was deleted.")
     with conn:
         conn.execute("DELETE FROM daily_symptom WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM daily_strategy WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM daily_log WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM cycle WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM remedy_log WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM user_settings WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM phase_guide WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM llm_usage WHERE user_id = ?", (user_id,))
         conn.execute(
             "DELETE FROM partner_links WHERE user_id = ? OR partner_user_id = ?",
             (user_id, user_id),
@@ -180,38 +262,55 @@ def delete_account(conn: sqlite3.Connection, user_id: int, confirm_email: str) -
 
 # --- daily logs ---------------------------------------------------------------
 
+def _write_log(conn: sqlite3.Connection, user_id: int, entry: LogEntry) -> None:
+    """Write one day's rows. Call inside a transaction, then rebuild cycles."""
+    day = entry.date.isoformat()
+    conn.execute(
+        "INSERT OR REPLACE INTO daily_log"
+        " (user_id, date, flow, mood, poor_sleep, high_stress, travel, day_rating, energy)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            user_id, day, entry.flow, entry.mood,
+            int(entry.poor_sleep), int(entry.high_stress), int(entry.travel),
+            entry.day_rating, entry.energy,
+        ),
+    )
+    # INSERT OR REPLACE deletes the old row, which cascades to its
+    # symptoms only when foreign keys are on — clear them explicitly
+    # so replacement never depends on the connection's pragmas.
+    for table in ("daily_symptom", "daily_strategy"):
+        conn.execute(f"DELETE FROM {table} WHERE user_id = ? AND date = ?", (user_id, day))
+    conn.executemany(
+        "INSERT INTO daily_symptom (user_id, date, symptom) VALUES (?, ?, ?)",
+        [(user_id, day, s) for s in sorted(entry.symptoms)],
+    )
+    conn.executemany(
+        "INSERT INTO daily_strategy (user_id, date, strategy) VALUES (?, ?, ?)",
+        [(user_id, day, s) for s in sorted(entry.strategies)],
+    )
+
+
 def save_log(conn: sqlite3.Connection, user_id: int, entry: LogEntry) -> None:
     """Save one day's log for a user, replacing anything already logged that day."""
     with conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO daily_log"
-            " (user_id, date, flow, mood, poor_sleep, high_stress, travel)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                user_id, entry.date.isoformat(), entry.flow, entry.mood,
-                int(entry.poor_sleep), int(entry.high_stress), int(entry.travel),
-            ),
-        )
-        # INSERT OR REPLACE deletes the old row, which cascades to its
-        # symptoms only when foreign keys are on — clear them explicitly
-        # so replacement never depends on the connection's pragmas.
-        conn.execute(
-            "DELETE FROM daily_symptom WHERE user_id = ? AND date = ?",
-            (user_id, entry.date.isoformat()),
-        )
-        conn.executemany(
-            "INSERT INTO daily_symptom (user_id, date, symptom) VALUES (?, ?, ?)",
-            [(user_id, entry.date.isoformat(), s) for s in sorted(entry.symptoms)],
-        )
+        _write_log(conn, user_id, entry)
+        _rebuild_cycles(conn, user_id)
+
+
+def save_logs(conn: sqlite3.Connection, user_id: int, entries: list[LogEntry]) -> None:
+    """save_log for many days in one transaction (one cycle rebuild).
+    Used to seed the demo account."""
+    with conn:
+        for entry in entries:
+            _write_log(conn, user_id, entry)
         _rebuild_cycles(conn, user_id)
 
 
 def delete_log(conn: sqlite3.Connection, user_id: int, day: date) -> None:
-    """Remove one day's log (and its symptoms) for a user."""
+    """Remove one day's log (and its symptoms and strategies) for a user."""
     with conn:
-        conn.execute(
-            "DELETE FROM daily_symptom WHERE user_id = ? AND date = ?", (user_id, day.isoformat())
-        )
+        for table in ("daily_symptom", "daily_strategy"):
+            conn.execute(f"DELETE FROM {table} WHERE user_id = ? AND date = ?", (user_id, day.isoformat()))
         conn.execute(
             "DELETE FROM daily_log WHERE user_id = ? AND date = ?", (user_id, day.isoformat())
         )
@@ -223,8 +322,8 @@ def get_logs(
 ) -> list[LogEntry]:
     """A user's logs in date order, optionally limited to start..end inclusive."""
     query = (
-        "SELECT date, flow, mood, poor_sleep, high_stress, travel FROM daily_log"
-        " WHERE user_id = ?"
+        "SELECT date, flow, mood, poor_sleep, high_stress, travel, day_rating, energy"
+        " FROM daily_log WHERE user_id = ?"
     )
     params: list = [user_id]
     if start is not None:
@@ -240,6 +339,11 @@ def get_logs(
         "SELECT date, symptom FROM daily_symptom WHERE user_id = ?", (user_id,)
     ):
         symptoms.setdefault(day, set()).add(symptom)
+    strategies: dict[str, set[str]] = {}
+    for day, strategy in conn.execute(
+        "SELECT date, strategy FROM daily_strategy WHERE user_id = ?", (user_id,)
+    ):
+        strategies.setdefault(day, set()).add(strategy)
 
     return [
         LogEntry(
@@ -250,8 +354,11 @@ def get_logs(
             poor_sleep=bool(poor_sleep),
             high_stress=bool(high_stress),
             travel=bool(travel),
+            day_rating=day_rating,
+            energy=energy,
+            strategies=frozenset(strategies.get(day, ())),
         )
-        for day, flow, mood, poor_sleep, high_stress, travel in rows
+        for day, flow, mood, poor_sleep, high_stress, travel, day_rating, energy in rows
     ]
 
 
@@ -372,3 +479,45 @@ def past_remedies(conn: sqlite3.Connection, user_id: int, symptom: str | None = 
         params.append(symptom)
     query += " GROUP BY remedy ORDER BY COUNT(*) DESC, remedy"
     return [row[0] for row in conn.execute(query, params)]
+
+
+# --- Level 2 settings -----------------------------------------------------------
+
+@dataclass(frozen=True)
+class Settings:
+    """A user's Level 2 settings. None means "not set" (spec.md Data)."""
+
+    luteal_days: int | None = None  # None = predict.LUTEAL_DAYS (14)
+    hormonal_contraception: bool = False
+    phase_guide_opt_in: bool = False
+    week_fit_opt_in: bool = False
+    is_demo: bool = False
+
+
+_SETTING_COLUMNS = tuple(Settings.__dataclass_fields__)
+
+
+def get_settings(conn: sqlite3.Connection, user_id: int) -> Settings:
+    row = conn.execute(
+        f"SELECT {', '.join(_SETTING_COLUMNS)} FROM user_settings WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    if row is None:
+        return Settings()
+    luteal, *flags = row
+    return Settings(luteal, *(bool(f) for f in flags))
+
+
+def update_settings(conn: sqlite3.Connection, user_id: int, **changes) -> Settings:
+    """Change some settings, leaving the rest as they are."""
+    unknown = set(changes) - set(_SETTING_COLUMNS)
+    if unknown:
+        raise ValueError(f"unknown settings {sorted(unknown)}")
+    luteal = changes.get("luteal_days")
+    if luteal is not None and not LUTEAL_DAYS_RANGE[0] <= luteal <= LUTEAL_DAYS_RANGE[1]:
+        raise ValueError(f"luteal_days must be {LUTEAL_DAYS_RANGE[0]}–{LUTEAL_DAYS_RANGE[1]}, got {luteal}")
+    values = {k: (int(v) if isinstance(v, bool) else v) for k, v in changes.items()}
+    with conn:
+        conn.execute("INSERT OR IGNORE INTO user_settings (user_id) VALUES (?)", (user_id,))
+        for column, value in values.items():
+            conn.execute(f"UPDATE user_settings SET {column} = ? WHERE user_id = ?", (value, user_id))
+    return get_settings(conn, user_id)
