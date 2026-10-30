@@ -64,8 +64,7 @@ def test_only_the_two_feature_modules_import_llm():
                      else [node.module] if isinstance(node, ast.ImportFrom) else [])
             if "llm" in names:
                 importers.add(path.name)
-    # week_fit.py arrives in Phase 14; nothing else may ever import llm.
-    assert "phase_guide.py" in importers and importers <= {"phase_guide.py", "week_fit.py"}
+    assert importers == {"phase_guide.py", "week_fit.py"}
 
 
 def test_no_key_means_no_request_and_no_slot_used(conn, users, fake_llm, monkeypatch):
