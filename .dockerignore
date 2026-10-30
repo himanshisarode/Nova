@@ -9,3 +9,5 @@ design_preview
 transcript.md
 fly.toml
 .env
+backups
+**/*.db

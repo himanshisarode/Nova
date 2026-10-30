@@ -72,7 +72,7 @@ def test_fly_mounts_the_volume_where_the_db_lives():
 
 def test_build_context_excludes_local_data_and_venv():
     ignored = (ROOT / ".dockerignore").read_text().split()
-    for entry in (".venv", "data", "*.db", ".git"):
+    for entry in (".venv", "data", "*.db", "**/*.db", "backups", ".git"):
         assert entry in ignored
 
 
