@@ -262,6 +262,16 @@ def delete_account(conn: sqlite3.Connection, user_id: int, confirm_email: str) -
 
 # --- daily logs ---------------------------------------------------------------
 
+class DemoReadOnly(PermissionError):
+    """The demo account's sample data can't be changed by visitors."""
+
+
+def _refuse_demo(conn: sqlite3.Connection, user_id: int) -> None:
+    row = conn.execute("SELECT is_demo FROM user_settings WHERE user_id = ?", (user_id,)).fetchone()
+    if row and row[0]:
+        raise DemoReadOnly("This is the demo account — its sample data can't be changed.")
+
+
 def _write_log(conn: sqlite3.Connection, user_id: int, entry: LogEntry) -> None:
     """Write one day's rows. Call inside a transaction, then rebuild cycles."""
     day = entry.date.isoformat()
@@ -292,6 +302,7 @@ def _write_log(conn: sqlite3.Connection, user_id: int, entry: LogEntry) -> None:
 
 def save_log(conn: sqlite3.Connection, user_id: int, entry: LogEntry) -> None:
     """Save one day's log for a user, replacing anything already logged that day."""
+    _refuse_demo(conn, user_id)
     with conn:
         _write_log(conn, user_id, entry)
         _rebuild_cycles(conn, user_id)
@@ -299,7 +310,8 @@ def save_log(conn: sqlite3.Connection, user_id: int, entry: LogEntry) -> None:
 
 def save_logs(conn: sqlite3.Connection, user_id: int, entries: list[LogEntry]) -> None:
     """save_log for many days in one transaction (one cycle rebuild).
-    Used to seed the demo account."""
+    Not for the demo account (see replace_demo_logs)."""
+    _refuse_demo(conn, user_id)
     with conn:
         for entry in entries:
             _write_log(conn, user_id, entry)
@@ -308,6 +320,7 @@ def save_logs(conn: sqlite3.Connection, user_id: int, entries: list[LogEntry]) -
 
 def delete_log(conn: sqlite3.Connection, user_id: int, day: date) -> None:
     """Remove one day's log (and its symptoms and strategies) for a user."""
+    _refuse_demo(conn, user_id)
     with conn:
         for table in ("daily_symptom", "daily_strategy"):
             conn.execute(f"DELETE FROM {table} WHERE user_id = ? AND date = ?", (user_id, day.isoformat()))
@@ -443,6 +456,7 @@ def add_remedy(
     conn: sqlite3.Connection, user_id: int, day: date, symptom: str, remedy: str, relief_rating: int
 ) -> RemedyEntry:
     """Log what was tried for a symptom and how much it helped (1–5)."""
+    _refuse_demo(conn, user_id)
     if symptom not in SYMPTOMS:
         raise ValueError(f"unknown symptom {symptom!r}; allowed: {SYMPTOMS}")
     if not 1 <= relief_rating <= 5:
@@ -521,3 +535,17 @@ def update_settings(conn: sqlite3.Connection, user_id: int, **changes) -> Settin
         for column, value in values.items():
             conn.execute(f"UPDATE user_settings SET {column} = ? WHERE user_id = ?", (value, user_id))
     return get_settings(conn, user_id)
+
+
+def replace_demo_logs(conn: sqlite3.Connection, user_id: int, entries: list[LogEntry]) -> None:
+    """Swap the demo account's synthetic logs for a fresh set, in one
+    transaction. Refuses any account not flagged is_demo, so it can never
+    touch a real user's data."""
+    if not get_settings(conn, user_id).is_demo:
+        raise PermissionError("replace_demo_logs only works on the demo account")
+    with conn:
+        for table in ("daily_symptom", "daily_strategy", "daily_log", "phase_guide"):
+            conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
+        for entry in entries:
+            _write_log(conn, user_id, entry)
+        _rebuild_cycles(conn, user_id)

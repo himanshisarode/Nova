@@ -21,6 +21,9 @@ MIN_PASSWORD_LENGTH = 8
 # rather than silently truncated.
 MAX_PASSWORD_BYTES = 72
 SESSION_KEY = "nova_user"
+# The demo account lives here (.invalid can never be a real address), so a
+# real signup can never collide with or impersonate it (spec.md Feature 21).
+RESERVED_EMAIL_DOMAIN = "@nova.invalid"
 
 # Deliberately loose: "something@something.something". Real verification
 # would need email delivery, which this project doesn't have.
@@ -68,6 +71,8 @@ def signup(conn: sqlite3.Connection, email: str, password: str, display_name: st
     display_name = display_name.strip()
     if not _EMAIL_RE.match(email):
         raise SignupError("That doesn't look like an email address.")
+    if email.endswith(RESERVED_EMAIL_DOMAIN):
+        raise SignupError("That email address is reserved for Nova's demo.")
     if not display_name:
         raise SignupError("Please tell us what to call you.")
     if len(password) < MIN_PASSWORD_LENGTH:

@@ -225,6 +225,13 @@ it can only rephrase them, never upgrade them.
 - **Alternatives:** a fresh demo account per visitor (would fill the
   production database with throwaway accounts); a separate demo app
   (would need another deployment and link).
+- **The seed is chosen, and that's disclosed:** across seeds 0–11 (10
+  cycles, +1.2 points), strength/follicular and early night/luteal were
+  found in 12 of 12, walk on period days in only 7 of 12 (period days
+  are few — about 5 a cycle — so that bucket has the least data). One
+  seed of the 12 also produced extra, false findings. The demo uses
+  seed 4, where exactly the three planted effects show; the honest
+  rates are the table above and these numbers, not the demo.
 - **Why read-only:** the hosted app has one demo account shared by
   every visitor; if visitors could log days, the demo would drift and
   one visitor's notes could be seen by the next.

@@ -88,6 +88,8 @@ def _link(row) -> PartnerLink:
 def create_invite(conn: sqlite3.Connection, owner_id: int, now: datetime | None = None) -> PartnerLink:
     """A new single-use code that lets someone view `owner_id`'s data."""
     now = now or _now()
+    if db.get_settings(conn, owner_id).is_demo:
+        raise InviteError("The demo account holds sample data and can't be shared.")
     for _ in range(5):  # a collision is astronomically unlikely; retry anyway
         code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
         try:
@@ -126,6 +128,8 @@ def redeem_invite(
         raise InviteError("That code has expired — invite codes last 48 hours.")
     if link.owner_id == viewer_id:
         raise InviteError("That's your own invite code — share it with your partner instead.")
+    if db.get_settings(conn, viewer_id).is_demo or db.get_settings(conn, link.owner_id).is_demo:
+        raise InviteError("The demo account can't be linked with real accounts.")
     if viewer_can_see(conn, viewer_id, link.owner_id):
         raise InviteError("You can already see this person's data.")
 
