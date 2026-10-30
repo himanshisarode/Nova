@@ -34,6 +34,12 @@ from theme import apply_theme, card, empty_state, eyebrow, footer, medical_discl
 DB_PATH = db.db_path()
 PAGES = ("Today", "Home", "My phases", "Plan my week", "Cycle Trends", "Insights",
          "Did You Know?", "Shared with me", "Settings")
+# Material Symbols (rounded line icons), checked against Streamlit's own
+# list in tests/test_redesign.py.
+PAGE_ICONS = {"Today": "sunny", "Home": "home", "My phases": "dark_mode",
+              "Plan my week": "calendar_month", "Cycle Trends": "monitoring",
+              "Insights": "auto_awesome", "Did You Know?": "lightbulb",
+              "Shared with me": "group", "Settings": "tune"}
 RATING_LABELS = {1: "😣 1", 2: "😕 2", 3: "😐 3", 4: "🙂 4", 5: "😊 5"}
 # Demo visitors opt in to the LLM features per tab, never in the shared account.
 DEMO_OPT_IN = {"phase_guide": "demo_opt_in_phase_guide", "week_fit": "demo_opt_in_week_fit"}
@@ -727,8 +733,9 @@ def main() -> None:
             page_login(conn)
         else:
             with st.sidebar:
-                st.markdown("### 🌙 Nova")
-                page = st.radio("Pages", PAGES, key="nav", label_visibility="collapsed")
+                st.markdown("### :material/bedtime: Nova")
+                page = st.radio("Pages", PAGES, key="nav", label_visibility="collapsed",
+                                format_func=lambda p: f":material/{PAGE_ICONS[p]}: {p}")
             if demo.is_demo(conn, user.id):
                 with card("demo-banner", tone="lavender"):
                     st.markdown(f"**{demo.BANNER}**")

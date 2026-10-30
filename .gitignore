@@ -5,3 +5,4 @@ data/
 .env
 backups/
 *.db
+design_reference/
