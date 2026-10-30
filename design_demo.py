@@ -3,16 +3,31 @@ with sample content only. Nothing here is saved or computed; delete this
 file once the look is approved and real pages exist.
 
 Run: streamlit run design_demo.py
+
+The sidebar's "Preview a season" switches the phase-tinted background
+(seasons.py) so all four can be compared before it reaches the real app.
 """
 from datetime import date
 
 import pandas as pd
 import streamlit as st
 
+import seasons
 from theme import apply_theme, card, empty_state, eyebrow, footer, medical_disclaimer
 
 st.set_page_config(page_title="Nova", page_icon="🌙", layout="centered")
 apply_theme()
+
+# Sample cycle position per season: (cycle day, next period in, logged?).
+# Only the period is known from the log; the other phases are estimates.
+SAMPLE_DAY = {
+    seasons.NEUTRAL: (12, "14–19 days", True),
+    "Winter": (2, "25–30 days", True),
+    "Spring": (9, "17–22 days", False),
+    "Summer": (14, "12–17 days", False),
+    "Autumn": (22, "4–9 days", False),
+}
+GREETING_EMOJI = {seasons.NEUTRAL: "🌸", "Winter": "🫖", "Spring": "🌷", "Summer": "🌻", "Autumn": "🍂"}
 
 with st.sidebar:
     st.markdown("### 🌙 Nova")
@@ -22,30 +37,58 @@ with st.sidebar:
         ["Today", "Cycle Trends", "Insights", "Did You Know?", "Settings"],
         label_visibility="collapsed",
     )
+    st.divider()
+    options = [seasons.NEUTRAL, *seasons.SEASONS]
+    start = st.query_params.get("season", "Spring")  # ?season=Winter for screenshots
+    season = st.radio(
+        "Preview a season",
+        options,
+        index=options.index(start) if start in options else 2,
+        format_func=lambda n: n if n == seasons.NEUTRAL else f"{seasons.SEASONS[n].icon} {n}",
+    )
+    tinted = st.toggle("Phase-tinted background", value=True)
     st.caption("Design preview — sample data only.")
+
+look = season if tinted else seasons.NEUTRAL
+seasons.apply_season(look)
+day, next_period, from_log = SAMPLE_DAY[season]
 
 # --- Welcome -----------------------------------------------------------------
 with card("welcome", tone="blush"):
     eyebrow(date.today().strftime("%A, %d %B"))
-    st.markdown("# Good to see you, Maya 🌸")
+    st.markdown(f"# Good to see you, Maya {GREETING_EMOJI[look]}")
     st.markdown(
         "Take a breath. Logging today takes about a minute, and every entry "
         "helps Nova get to know your rhythm a little better."
     )
+    if look != seasons.NEUTRAL:
+        seasons.chip(look, day, known=from_log)
 
 # --- At a glance -------------------------------------------------------------
 with card("glance"):
     eyebrow("At a glance")
     st.markdown("### Where you are this cycle")
     c1, c2, c3 = st.columns(3)
-    c1.metric("Cycle day", "12")
-    c2.metric("Next period", "in 14–19 days")
+    c1.metric("Cycle day", str(day))
+    c2.metric("Next period in", next_period)
     c3.metric("Cycles logged", "4")
     st.caption(
         "Predictions show a range, not a single date — that range is Nova "
         "being honest about how much it can know so far."
     )
     medical_disclaimer()
+
+# --- Season gallery ----------------------------------------------------------
+with card("seasons"):
+    eyebrow("Seasons preview")
+    st.markdown("### Your background follows your cycle")
+    for col, name in zip(st.columns(4), seasons.SEASONS):
+        col.html(seasons.tile(name))
+    st.caption(
+        "The colours are a mood, not a forecast of how you'll feel. Only the "
+        "period is read from your log; the other phases are estimates, and "
+        "you can switch this off in Settings."
+    )
 
 # --- Daily log ---------------------------------------------------------------
 with card("log"):

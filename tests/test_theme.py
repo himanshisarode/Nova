@@ -78,3 +78,36 @@ def test_disclaimer_check_is_not_trivially_true():
 
     at = AppTest.from_file(str(ROOT / "design_demo.py"), default_timeout=30).run()
     assert not card_has_disclaimer(at, "welcome")
+
+
+# --- seasons (phase-tinted background, design preview) ------------------------
+
+def test_neutral_season_adds_no_css():
+    import seasons
+
+    assert seasons.season_css(seasons.NEUTRAL) == ""
+
+
+def test_season_motifs_are_valid_data_uris():
+    # An unescaped '#' (every colour) ends a data URI early and the motif
+    # silently fails to load, so check each one parses as SVG.
+    import re
+    import xml.dom.minidom
+    from urllib.parse import unquote
+
+    import seasons
+
+    for s in seasons.SEASONS.values():
+        for uri in [svg for svg, _, _ in s.scene] + [s.drift]:
+            body = re.fullmatch(r'url\("data:image/svg\+xml,(.*)"\)', uri).group(1)
+            assert "#" not in body, s.name
+            xml.dom.minidom.parseString(unquote(body))
+
+
+@pytest.mark.parametrize("season", ["Neutral", "Winter", "Spring", "Summer", "Autumn"])
+def test_demo_renders_every_season(season):
+    at = AppTest.from_file(str(ROOT / "design_demo.py"), default_timeout=30)
+    at.query_params["season"] = season
+    at.run()
+    assert not at.exception
+    assert at.sidebar.radio[1].value == season

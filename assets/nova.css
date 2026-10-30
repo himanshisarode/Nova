@@ -4,6 +4,7 @@
 
 :root {
   --nova-blush: #F6C6CE;
+  --nova-blush-hover: #F2B3BE;
   --nova-blush-soft: #FCEEF0;
   --nova-lavender: #D9C9E8;
   --nova-lavender-soft: #F5EEF8;
@@ -11,6 +12,9 @@
   --nova-card: #FFFDFB;
   --nova-charcoal: #3B3436;
   --nova-muted: #7D7275;
+  --nova-ink: #B5627A; /* eyebrow labels, small accents */
+  --nova-tint: #FFF1F3; /* tinted cards */
+  --nova-tint-2: #F7F0FB;
   --nova-shadow: 0 6px 24px rgba(180, 120, 135, 0.12), 0 1px 3px rgba(180, 120, 135, 0.08);
   --nova-shadow-lift: 0 10px 32px rgba(180, 120, 135, 0.18), 0 2px 6px rgba(180, 120, 135, 0.10);
   --nova-radius: 22px;
@@ -48,8 +52,8 @@ p, li, label { line-height: 1.65; }
 [class*="st-key-nova-card"]:hover { box-shadow: var(--nova-shadow-lift); }
 
 /* Tinted cards for gentle emphasis. */
-[class*="st-key-nova-card-blush"] { background: linear-gradient(135deg, #FFF1F3, var(--nova-card)); }
-[class*="st-key-nova-card-lavender"] { background: linear-gradient(135deg, #F7F0FB, var(--nova-card)); }
+[class*="st-key-nova-card-blush"] { background: linear-gradient(135deg, var(--nova-tint), var(--nova-card)); }
+[class*="st-key-nova-card-lavender"] { background: linear-gradient(135deg, var(--nova-tint-2), var(--nova-card)); }
 
 /* Metrics read as little stat tiles. */
 [data-testid="stMetric"] {
@@ -71,7 +75,7 @@ p, li, label { line-height: 1.65; }
 }
 [data-testid="stBaseButton-primary"]:hover,
 [data-testid="stBaseButton-primaryFormSubmit"]:hover {
-  background: #F2B3BE;
+  background: var(--nova-blush-hover);
   color: var(--nova-charcoal);
   border: none;
 }
@@ -134,7 +138,7 @@ p, li, label { line-height: 1.65; }
   letter-spacing: 0.08em;
   font-size: 0.75rem;
   font-weight: 700;
-  color: #B5627A;
+  color: var(--nova-ink);
   margin-bottom: 0.2rem;
 }
 
@@ -156,4 +160,45 @@ p, li, label { line-height: 1.65; }
   font-size: 0.8rem;
   line-height: 1.6;
   text-align: center;
+}
+
+/* Seasons (seasons.py): the phase chip and the demo's preview tiles. */
+.nova-season-chip {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  background: var(--nova-blush-soft);
+  color: var(--nova-charcoal);
+  font-size: 0.88rem;
+}
+.nova-season-chip b { color: var(--nova-ink); }
+.nova-season-chip span { color: var(--nova-muted); }
+.nova-season-tile {
+  position: relative;
+  overflow: hidden;
+  height: 150px;
+  border-radius: 18px;
+  padding: 0.9rem 1rem;
+  box-shadow: var(--nova-shadow);
+}
+.nova-season-art {
+  position: absolute;
+  right: -14px;
+  bottom: -10px;
+  width: 96px;
+  height: 96px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  opacity: 0.9;
+}
+.nova-season-name { position: relative; font-weight: 700; font-size: 1.05rem; }
+.nova-season-phase { position: relative; color: var(--nova-muted); font-size: 0.82rem; }
+.nova-season-dots { position: absolute; left: 1rem; bottom: 0.9rem; display: flex; gap: 5px; }
+.nova-season-dots i { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px #fff; }
+
+/* Anything that drifts or fades stays still for people who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .stApp::before, .stApp::after { animation: none !important; }
 }
