@@ -174,7 +174,27 @@ Two problems the owner raised:
   than 6–10 cycles; it would almost never show anything. BH controls
   the share of findings that are false (here ≤ 10%), which matches the
   question being asked ("which of these are worth trusting?").
-- Checked on simulated people: see the Phase 11 results in PLAN.md.
+- Checked on simulated people (40 per row; planted effect = +1 or +0.7
+  rating points on use days, two planted pairs; day noise sd 0.8,
+  month-to-month sd 0.4; each strategy ticked on 25% of days, 85% of
+  days rated):
+
+  | Cycles | Effect | Planted pair found | No-effect people with any finding | People with real effects who also get ≥ 1 false finding |
+  |---|---|---|---|---|
+  | 6 | 1.0 | 90% / 80% | 5% | 22.5% |
+  | 8 | 1.0 | 95% / 90% | 2.5% | 15% |
+  | 10 | 1.0 | 95% / 100% | 0% | 17.5% |
+  | 6 | 0.7 | 50% / 38% | 5% | 12.5% |
+  | 10 | 0.7 | 68% / 68% | 0% | 10% |
+
+  What this means for the viva: a strong habit-to-day link (about one
+  rating point) shows up reliably after 6–8 cycles; a smaller one (0.7)
+  often doesn't, even after 10. People with no real pattern are almost
+  never told something tends to go well. But when real findings exist,
+  BH lets roughly 1 in 6 people see one extra, false one alongside them
+  — that is the price of a 10% false-discovery rate, and the reason
+  every finding carries a tier and associative wording. The test suite
+  pins the 8-cycle, 1.0-point row (≥ 80% found, ≤ 10% false).
 
 ### Minimums
 - 8 use days in that bucket, over ≥ 4 different cycles, each of which

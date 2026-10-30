@@ -118,3 +118,56 @@ def simulate_history(
         starts.append(starts[-1] + timedelta(days=length))
     logs = simulate_logs(rng, starts, irregular, stress_link)
     return SimulatedHistory(typical, spread, lengths, irregular, starts, logs)
+
+
+# --- Level 2: "what works for me" days (spec.md Features 18, 20) ---------------
+# Kept on its own random stream (seeded from [seed, LEVEL2_STREAM]) so every
+# number the functions above produce is unchanged.
+LEVEL2_STREAM = 2
+STRATEGY_USE_RATE = 0.25  # chance of ticking each strategy on a given day
+RATING_LOG_RATE = 0.85  # share of days with a "how did today go" rating
+RATING_BASE = 3.0
+CYCLE_LEVEL_SD = 0.4  # some months just go better than others
+DAY_NOISE_SD = 0.8
+
+
+def with_strategies(
+    history: SimulatedHistory,
+    seed: int,
+    effects: dict[tuple[str, str], float] | None = None,
+    luteal_days: int | None = None,
+) -> list[LogEntry]:
+    """The history's logs plus day ratings, energy and strategies.
+
+    `effects` plants an association: {(bucket, strategy): rating points
+    added on days that strategy is used in that phase bucket}. Phases are
+    the tracker's own estimates (phases.history_phases), so a planted
+    effect is exactly what the analysis can, at best, recover.
+    """
+    import phases  # local: simulate.py stays importable without the tracker
+
+    effects = effects or {}
+    rng = np.random.default_rng([seed, LEVEL2_STREAM])
+    from db import BLEEDING_FLOWS, STRATEGIES
+
+    bleeding = [e.date for e in history.logs if e.flow in BLEEDING_FLOWS]
+    day_phase = phases.history_phases(history.starts, bleeding, luteal_days)
+    cycle_level = [rng.normal(0, CYCLE_LEVEL_SD) for _ in history.starts]
+    cycle_index = 0
+    out = []
+    for entry in history.logs:
+        while cycle_index + 1 < len(history.starts) and entry.date >= history.starts[cycle_index + 1]:
+            cycle_index += 1
+        used = frozenset(s for s in STRATEGIES if rng.random() < STRATEGY_USE_RATE)
+        bucket = phases.BUCKET_OF.get(day_phase.get(entry.date))
+        score = RATING_BASE + cycle_level[cycle_index] + rng.normal(0, DAY_NOISE_SD)
+        score += sum(effects.get((bucket, s), 0.0) for s in used)
+        rated = rng.random() < RATING_LOG_RATE
+        out.append(LogEntry(
+            entry.date, entry.flow, entry.mood, entry.symptoms,
+            entry.poor_sleep, entry.high_stress, entry.travel,
+            day_rating=int(min(5, max(1, round(score)))) if rated else None,
+            energy=int(min(5, max(1, round(score + rng.normal(0, 0.7))))) if rated else None,
+            strategies=used,
+        ))
+    return out
