@@ -6,12 +6,13 @@ Cards stay cream in every season so text keeps its contrast; only the page
 around them changes. The look is a mood, never a claim about how someone
 feels, so captions name the phase and how Nova knows it, nothing more.
 
-Not wired into app.py yet: deciding *which* season applies needs the
-prediction data (period = known from the log, the rest = estimates), and
-the user must be able to switch it off.
+The page tint (season_css) is still preview-only: it animates, and the
+redesign keeps the page still. What the app uses is the seasons strip at
+the bottom of this file, a display-only picture on "My phases".
 """
 import math
 from dataclasses import dataclass
+from datetime import date, timedelta
 from html import escape
 from urllib.parse import quote
 
@@ -347,3 +348,74 @@ def tile(name: str) -> str:
         f'<div class="nova-season-phase">{escape(s.phase)}</div>'
         f'<div class="nova-season-dots">{dots}</div></div>'
     )
+
+
+# --- the seasons strip on "My phases" -------------------------------------------
+# Display only: a picture of the open cycle's estimated phase windows
+# (phases.current_cycle), one season each. The analysis buckets and every
+# window date come from phases.py unchanged; this only draws them.
+
+STRIP_ICONS = {"Winter": "ac_unit", "Spring": "local_florist", "Summer": "sunny", "Autumn": "eco"}
+STRIP_CAPTION = (
+    "A picture of your phases as seasons. Each length is estimated from your own cycles, "
+    "so the edges are soft guesses, not dates — and the last stretch is wide because your "
+    "next period could start anywhere in it."
+)
+
+
+@dataclass(frozen=True)
+class Segment:
+    season: str  # a key of SEASONS, or "" for the next-period range
+    label: str
+    days: int
+
+
+def _span(a: date, b: date) -> int:
+    return max(0, (b - a).days + 1)  # inclusive; 0 if the window is empty
+
+
+def strip_segments(current) -> list[Segment]:
+    """Segments sized in days from a phases.CurrentCycle with a prediction.
+    The last one is the next-period range: still luteal, or already a new
+    period — Nova can't tell which, so it's drawn apart."""
+    one = timedelta(days=1)
+    ovulation_from = max(current.ovulation_from, current.period_end + one)
+    parts = [
+        Segment("Winter", "period", _span(current.start, current.period_end)),
+        Segment("Spring", "follicular", _span(current.period_end + one, current.ovulation_from - one)),
+        Segment("Summer", "ovulation window", _span(ovulation_from, current.ovulation_to)),
+        Segment("Autumn", "luteal", _span(current.luteal_from, current.next_earliest - one)),
+        Segment("", "luteal, or your next period", _span(current.next_earliest, current.next_latest)),
+    ]
+    return [p for p in parts if p.days > 0]
+
+
+def _icon(season: str) -> str:
+    return (f'<span class="nova-icon" aria-hidden="true" style="color:{SEASONS[season].ink}">'
+            f"{STRIP_ICONS[season]}</span>")
+
+
+def strip_html(current) -> str:
+    """The strip as HTML: bars sized by estimated days, a marker for today,
+    and a legend underneath (labels don't fit inside short segments)."""
+    segs = strip_segments(current)
+    total = sum(s.days for s in segs)
+    bars, legend = [], []
+    for s in segs:
+        days = f"~{s.days} day{'s' if s.days != 1 else ''}"
+        if s.season:
+            bars.append(f'<div class="nova-strip-seg" style="flex:{s.days};background:{SEASONS[s.season].accent}"></div>')
+            legend.append(f'<span class="nova-strip-key">{_icon(s.season)}<b style="color:{SEASONS[s.season].ink}">'
+                          f"{s.season}</b> {escape(s.label)} · {days}</span>")
+        else:
+            bars.append(f'<div class="nova-strip-seg nova-strip-range" style="flex:{s.days}"></div>')
+            legend.append(f'<span class="nova-strip-key"><i class="nova-strip-swatch"></i>'
+                          f"<b>Autumn or Winter</b> {escape(s.label)} · {days}</span>")
+    if not any(s.season == "Spring" for s in segs):
+        legend.insert(1, f'<span class="nova-strip-key">{_icon("Spring")}<b style="color:{SEASONS["Spring"].ink}">'
+                      "Spring</b> follicular · inside the summer window this cycle, too uncertain to draw apart</span>")
+    left = min(100.0, max(0.0, (current.day - 0.5) / total * 100))
+    marker = f'<div class="nova-strip-today" style="left:{left:.1f}%"><span>today</span></div>'
+    return ('<div class="nova-strip">'
+            f'<div class="nova-strip-bar">{"".join(bars)}{marker}</div>'
+            f'<div class="nova-strip-legend">{"".join(legend)}</div></div>')

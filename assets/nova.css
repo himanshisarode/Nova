@@ -208,6 +208,82 @@ p, li, label { line-height: 1.65; }
   margin-bottom: 0.5rem;
 }
 
+/* Today's wellness tiles: small tinted cards, not white rectangles. */
+.nova-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.9rem;
+}
+.nova-tile {
+  background: var(--nova-blush-soft);
+  border-radius: 20px;
+  padding: 1rem 1.1rem 1.05rem;
+}
+.nova-tile:nth-child(even) { background: var(--nova-lavender-soft); }
+.nova-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nova-ink);
+}
+.nova-tile-value { margin-top: 0.55rem; font-size: 1.05rem; font-weight: 700; color: var(--nova-charcoal); }
+.nova-tile-note { margin-top: 0.2rem; font-size: 0.82rem; color: var(--nova-muted); line-height: 1.45; }
+.nova-tile-empty .nova-tile-value { font-weight: 600; color: var(--nova-muted); }
+
+/* Seasons strip (seasons.strip_html): phases sized by estimated days. */
+.nova-strip { margin: 1.4rem 0 0.4rem; }
+.nova-strip-bar {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  height: 18px;
+}
+.nova-strip-seg { border-radius: 999px; min-width: 6px; opacity: 0.85; }
+.nova-strip-range {
+  background: repeating-linear-gradient(135deg, #EADBE2 0 6px, transparent 6px 11px);
+  box-shadow: inset 0 0 0 1px #EADBE2;
+}
+.nova-strip-today {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--nova-charcoal);
+}
+.nova-strip-today span {
+  position: absolute;
+  top: -1.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--nova-charcoal);
+}
+.nova-strip-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.1rem;
+  margin-top: 0.85rem;
+  font-size: 0.8rem;
+  color: var(--nova-muted);
+}
+.nova-strip-key { display: inline-flex; align-items: center; gap: 0.3rem; }
+.nova-strip-key b { font-weight: 700; color: var(--nova-charcoal); }
+.nova-strip-key .nova-icon { font-size: 1rem; }
+.nova-strip-swatch {
+  width: 14px;
+  height: 10px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(135deg, #D9C3CD 0 3px, transparent 3px 6px);
+  box-shadow: inset 0 0 0 1px #D9C3CD;
+}
+
 /* Medical disclaimer (SPEC.md): calm, readable, never hidden. */
 .nova-disclaimer {
   margin-top: 0.5rem;
@@ -219,8 +295,12 @@ p, li, label { line-height: 1.65; }
   line-height: 1.55;
 }
 .nova-footer {
+  position: relative;
+  z-index: 1;
   margin-top: 2rem;
-  padding: 1.25rem 0.5rem 0;
+  padding: 1.25rem 1rem 1rem;
+  background: rgba(255, 248, 243, 0.94); /* the corner art never sits under the disclaimer */
+  border-radius: 0 0 18px 18px;
   border-top: 1px solid rgba(217, 201, 232, 0.6);
   color: var(--nova-muted);
   font-size: 0.8rem;

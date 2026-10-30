@@ -11,6 +11,8 @@ from pathlib import Path
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
 
+import art
+
 CSS_PATH = Path(__file__).parent / "assets" / "nova.css"
 # plain = white card; blush/lavender = tinted; open = no box at all, so not
 # every section is a white rectangle (used for page intros).
@@ -31,7 +33,7 @@ MEDICAL_DISCLAIMER = (
 
 @lru_cache(maxsize=1)
 def _css() -> str:
-    return CSS_PATH.read_text(encoding="utf-8")
+    return CSS_PATH.read_text(encoding="utf-8") + art.corner_css()
 
 
 def apply_theme() -> None:

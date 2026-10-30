@@ -9,6 +9,7 @@ The database file is data/nova.db, or NOVA_DB_PATH if set (Docker mounts
 a volume there). A connection is opened per script run.
 """
 from datetime import date, timedelta
+from html import escape
 from pathlib import Path
 
 import streamlit as st
@@ -27,9 +28,10 @@ import phases
 import predict
 import qna_content
 import remedy
+import seasons
 import week_fit
 import whatworks
-from theme import apply_theme, card, empty_state, eyebrow, footer, medical_disclaimer
+from theme import apply_theme, card, empty_state, eyebrow, footer, icon_html, medical_disclaimer
 
 DB_PATH = db.db_path()
 PAGES = ("Today", "Home", "My phases", "Plan my week", "Cycle Trends", "Insights",
@@ -139,11 +141,64 @@ def page_login(conn) -> None:
             st.rerun()
 
 
+def _tile(icon: str, title: str, value: str, note: str, empty: bool = False) -> str:
+    cls = "nova-tile nova-tile-empty" if empty else "nova-tile"
+    return (f'<div class="{cls}"><div class="nova-tile-head">{icon_html(icon)}{escape(title)}</div>'
+            f'<div class="nova-tile-value">{escape(value)}</div>'
+            f'<div class="nova-tile-note">{escape(note)}</div></div>')
+
+
+def wellness_tiles(conn, user: auth.User, today: date) -> None:
+    """Today at a glance: only what's already logged for today, plus (past
+    the gate) the strategies that tend to go well in today's possible
+    phases — the same list Plan my week uses. No new numbers."""
+    entry = db.get_log(conn, user.id, today)
+    later = "Add it in the check-in below."
+    tiles = []
+    if entry and entry.energy:
+        tiles.append(_tile("bolt", "Energy", f"{RATING_LABELS[entry.energy]} of 5", "Logged today"))
+    else:
+        tiles.append(_tile("bolt", "Energy", "Not logged yet", later, empty=True))
+    if entry and entry.mood:
+        tiles.append(_tile("sentiment_calm", "Mood", f"{MOOD_LABELS[entry.mood]} of 5", "Logged today"))
+    else:
+        tiles.append(_tile("sentiment_calm", "Mood", "Not logged yet", later, empty=True))
+    if entry is None:
+        tiles.append(_tile("healing", "Symptoms", "Not logged yet", later, empty=True))
+    elif entry.symptoms:
+        tiles.append(_tile("healing", "Symptoms", ", ".join(_label(x) for x in sorted(entry.symptoms)), "Logged today"))
+    else:
+        tiles.append(_tile("healing", "Symptoms", "None noted", "Logged today"))
+
+    ctx = level2_context(conn, user, today)
+    title = "Tends to go well"
+    if ctx["settings"].hormonal_contraception:
+        tiles.append(_tile("auto_awesome", title, "Switched off", "While you use hormonal contraception.", empty=True))
+    elif not ctx["gate"].open:
+        tiles.append(_tile("auto_awesome", title, "Coming later",
+                           "After about six months of logging, your own findings appear here.", empty=True))
+    else:
+        plan = week_fit.plan_days(today, ctx["current"], ctx["period_days"], ctx["findings"],
+                                  ctx["settings"].luteal_days)[0]
+        if plan.buckets is None:
+            tiles.append(_tile("auto_awesome", title, "Not sure yet", "Nova can't estimate today's phase.", empty=True))
+        elif plan.offered:
+            names = ", ".join(whatworks.strategy_label(x) for x, _ in plan.offered[:3])
+            tiles.append(_tile("auto_awesome", title, names.capitalize(),
+                               "In your data, around this phase (an estimate)."))
+        else:
+            tiles.append(_tile("auto_awesome", title, "Nothing stands out",
+                               "Nothing in your data clearly fits today's possible phases yet.", empty=True))
+    st.html('<div class="nova-tiles">' + "".join(tiles) + "</div>")
+
+
 def page_today(conn, user: auth.User, today: date) -> None:
     with card("welcome", tone="open"):
         eyebrow(today.strftime("%A, %d %B"), icon="sunny")
         st.markdown(f"# Hi {user.display_name} 🌸")
         st.markdown("Logging takes about a minute, and every entry helps Nova know your rhythm a little better.")
+
+    wellness_tiles(conn, user, today)
 
     with card("log"):
         eyebrow("Check-in", icon="edit_note")
@@ -441,6 +496,9 @@ def page_phases(conn, user: auth.User, today: date) -> None:
                 f"- Luteal phase (estimate): from about **{_fmt(current.luteal_from)}**\n"
                 f"- Next period: between **{_fmt(current.next_earliest)}** and **{_fmt(current.next_latest)}**"
             )
+            if not settings.hormonal_contraception:
+                st.html(seasons.strip_html(current))
+                st.caption(seasons.STRIP_CAPTION)
             st.caption(
                 f"Counted back {phases.luteal(settings.luteal_days)} days from your predicted period "
                 "(the luteal half is the steadier one), so the windows are as wide as the uncertainty "
