@@ -3,8 +3,8 @@
 Renamed from Interval. Same core idea (honest predictions, not fake-precise
 ones), now a bigger, more complete project: accounts, partner sharing,
 two local-statistics features, and a real visual design pass. Pregnancy
-mode, the Symptom Checker, and Explain My Trend were scoped for v2 but are
-deferred — see "Not yet built" at the bottom.
+mode and the Symptom Checker were scoped for v2 but are deferred — see
+"Not yet built". Explain My Trend was dropped; the LLM layer replaces it.
 This supersedes the old Interval SPEC.md and Interval_PLAN.md — don't build
 off those anymore, they're stale as of this version.
 
@@ -18,12 +18,21 @@ A cycle-tracking app, usable by one person and, optionally, a partner they
 invite — still built around explainable, statistically honest predictions
 (prediction intervals, SHAP-explained flags) instead of black-box ones.
 
+Level 2 scope (branch `level2`, Features 17–23): Nova also becomes a
+personal cycle-syncing tool. Nothing in it gives generic "days 1–5 do
+yoga" advice: phases come from the user's own cycles, and what tends to
+go well in each phase is learned from the user's own "what works for me"
+log, then (optionally) written up and fitted around her week by exactly
+two kinds of LLM call (see "LLM layer (Level 2)"). The app stays
+English-only. Every choice made for this scope, with its alternatives,
+is explained in plain language in DECISIONS.md.
+
 ## Non-Goals (updated — some of v1's non-goals have flipped to goals below)
 - Community/social chat — still cut. No group features, no public feed.
 - Any multi-turn AI conversation, or an AI that decides what to do on its
-  own. Both AI features are deferred (see "Not yet built"); if they come
-  back, they stay single request, single reply. Never a back-and-forth,
-  never autonomous.
+  own. The LLM layer's two call types (see "LLM layer (Level 2)") are
+  single request, single reply; so is the deferred Symptom Checker if it
+  comes back. Never a back-and-forth, never autonomous.
 - A full clinical-grade symptom checker — when the deferred Symptom
   Checker is built, it stays scoped as described in "Not yet built".
 - Open public signup for strangers — accounts exist so you and a partner
@@ -60,9 +69,12 @@ invite — still built around explainable, statistically honest predictions
   hidden in the UI — this is a data-integrity requirement (your partner
   shouldn't be able to silently edit your logs), not a privacy add-on, so
   it's not something "don't worry about privacy much" relaxes.
-- No external API calls in the current scope. Both AI features (and their
-  files, explain.py and symptom_checker.py) are deferred; nothing in the
-  built app sends data anywhere.
+- External API calls: only through llm.py, only the two call types in
+  "LLM layer (Level 2)", only after the user opts in, and only with the
+  payloads listed under "Constraints". Everything else in the app, the
+  new by-phase analysis included, is local computation. Without an API
+  key the app is fully usable: both LLM features show their template
+  versions. The Symptom Checker (symptom_checker.py) stays deferred.
 - Lifestyle-Link Finder and Remedy Effectiveness (both new, see Features)
   are deliberately NOT API calls — both are "did this actually help / is
   this actually linked" claims, which is a statistics question, not a
@@ -149,6 +161,38 @@ Not tied to any one feature, deferred or built. The exact text, verbatim:
   comparison: lowercased, surrounding whitespace stripped, spaces turned
   into underscores (so "Heat Pad" and "heat_pad" are the same remedy).
 
+Level 2 additions. All additive: new nullable columns and new tables, no
+existing column changed or dropped, applied by db.migrate() at startup
+(see "Migration").
+- `daily_log` gains `day_rating` ("how did today go", 1–5, nullable) and
+  `energy` (1–5, nullable).
+- `daily_strategy`: user_id, date, strategy — one row per strategy tried
+  that day, (user_id, date) referencing daily_log, primary key
+  (user_id, date, strategy). Fixed list of 10 (STRATEGIES in db.py):
+  walk, yoga, strength, cardio, rest_day, deep_focus_work, light_admin,
+  social_plans, early_night, journaling. This is a separate table, not
+  an extension of `remedy_log`: a remedy answers "what eased this
+  symptom" (it needs a symptom and a relief rating), a strategy answers
+  "what did I do today" and is judged against the day's rating. Feature
+  16 is untouched. No calorie, weight, food or diet-restriction item, now
+  or later.
+- `user_settings`: user_id (primary key), luteal_days (10–17, null =
+  default 14), hormonal_contraception (0/1, null = not answered, treated
+  as no), phase_guide_opt_in (0/1, null = off), week_fit_opt_in (0/1,
+  null = off), is_demo (0/1, null = no).
+- `phase_guide`: user_id, cycle_start (the newest completed cycle's
+  start; primary key with user_id), guide_json, created_at. Only LLM
+  output that passed validation is stored; templates are recomputed.
+- `llm_usage`: user_id, day, call_type, count — primary key (user_id,
+  day, call_type). Enforces the daily caps server-side.
+- Week Fit notes and generated weeks are never stored anywhere.
+
+Migration: db.migrate() runs on every connect, checks PRAGMA table_info
+and adds only what is missing (ALTER TABLE ... ADD COLUMN, CREATE TABLE
+IF NOT EXISTS). It never rewrites, deletes or copies rows. It is tested
+on a database built by the pre-Level-2 schema: every pre-existing row is
+byte-identical afterwards.
+
 ## Features
 Numbering is kept stable so references elsewhere don't shift; deferred
 items stay listed here as a pointer.
@@ -167,8 +211,9 @@ items stay listed here as a pointer.
    - Once today is past the predicted date/range, show a gentle "later
      than your usual range" message instead of a stale prediction.
 3. Fertile window / ovulation estimate (clearly labeled as an estimate,
-   not contraception): ovulation = predicted next start − 14 days;
-   window = 5 days before ovulation to 1 day after. In Honest mode it
+   not contraception): ovulation = predicted next start − L days, where
+   L is the user's luteal_days setting (10–17, default 14 — decision (a),
+   DECISIONS.md); window = 5 days before ovulation to 1 day after. In Honest mode it
    spans the earliest to latest ovulation the range allows. Same
    3-cycle minimum. If recent cycles (the last ≤ 12) vary by more than
    9 days shortest-to-longest (the lenient end of FIGO 2018's 7–9 day
@@ -203,7 +248,8 @@ items stay listed here as a pointer.
      disclaimer in every page's footer.
    - CSV: the same per-cycle table (symptoms as `cramps:3; fatigue:2`).
    - Left out: email, mood, lifestyle tags, remedy log, SHAP
-     explanations, partner details.
+     explanations, partner details — and all Level 2 data: day rating,
+     energy, strategies, phase labels, settings, Phase Guide, LLM usage.
    - The irregularity reason says what happened ("12 days longer than
      your usual 29", "shorter than the 24–38 day range…"), never why —
      nothing implying a cause such as stress or sleep, since those
@@ -212,13 +258,17 @@ items stay listed here as a pointer.
    - Export: a ZIP of account.json (email, display name, created date),
      daily_log.csv (every field), cycles.csv, partner_links.csv (role,
      other person's display name, status, dates) — never the password
-     hash or invite codes — plus remedy_log.csv.
+     hash or invite codes — plus remedy_log.csv, and for Level 2:
+     what_works_log.csv (date, day_rating, energy, strategies),
+     settings.json, phase_guide.csv, llm_usage.csv.
    - Delete: one action removes everything — logs, symptoms, cycles,
-     partner links in both directions, and the account. The user must
+     partner links in both directions, Level 2 data (strategies,
+     settings, stored Phase Guides, LLM usage counts), and the account. The user must
      type their account email to confirm (checked in db.delete_account,
      not just the UI), then is logged out. SQLite's secure_delete is on,
      so deleted rows are overwritten in the file, not left in free pages.
-8. *Explain My Trend — deferred, see "Not yet built"*
+8. *Explain My Trend — dropped; replaced by the LLM layer (one sentence
+   in Phase Guide, see "LLM layer (Level 2)")*
 9. Account creation + login — email + password, bcrypt-hashed; login
    lasts while the tab is open. Emails are stored lowercased and are
    unique regardless of case. Passwords need at least 8 characters and
@@ -244,6 +294,10 @@ items stay listed here as a pointer.
     - Enforcement: the partner reads through a separate SQLite
       connection opened read-only (mode=ro + query_only), and the link
       is re-checked on every read.
+    - Level 2 data is invisible to a partner: PartnerView's public API
+      does not change (its pinning test stays as is), so phases,
+      ratings, strategies, findings, Phase Guide and settings are
+      unreachable from it.
 11. *Pregnancy mode — deferred, see "Not yet built"*
 12. *Symptom Checker — deferred, see "Not yet built"*
 13. Pastel, card-based UI throughout (see Design)
@@ -288,6 +342,129 @@ items stay listed here as a pointer.
     tests/test_remedy.py. Normalizing also collapses runs of whitespace
     into one underscore ("Heat   Pad" → heat_pad). Pairs without enough
     data carry no average at all, and are listed after ranked ones.
+
+Level 2 (Features 17–23). Appendix A is the reference for everything
+that names a phase; the decisions it asks for are recorded in
+DECISIONS.md (a)–(d) and applied below.
+
+17. Personal phase tracker (phases.py) — phases come from the user's
+    own cycles, never a 28-day template, and are always labelled as
+    estimates with windows, not single days. L = luteal_days setting.
+    - Completed cycles (start S, next start N): period days = S through
+      the last bleeding day of that period (the Data section's period
+      rule); ovulation estimate = N − L, counted backwards from the next
+      period start (Appendix A3); ovulation window = N − L − 2 to
+      N − L + 2; luteal = the days after the window up to N − 1;
+      follicular = everything between the period and the window. Where
+      a short cycle makes these overlap, period wins, then luteal.
+    - Current cycle: period days from the log; the rest uses the Honest
+      prediction (Feature 2) of the next start, E..T: ovulation window =
+      E − L − 2 to T − L + 2, luteal estimate from T − L + 3. Shown with
+      that uncertainty, not hidden. Below 3 completed cycles, only the
+      period is shown ("not enough cycles to estimate the rest yet").
+      Once the period is late (Feature 2), the phase reads "luteal or a
+      new period — not sure" instead of a stale guess.
+    - Display uses the four familiar names (period, follicular,
+      ovulation window, luteal). The analysis uses 3 buckets —
+      decision (b): period / follicular (rest of follicular plus the
+      ovulation window) / luteal.
+    - It builds on Feature 3: same L, same Honest prediction; the
+      fertile window is not re-implemented.
+    - Not shown on the daily logging screen (decision (c)): the Today
+      page never names a phase, to avoid nudging the day's rating.
+    - Hormonal contraception (decision (d)): the tracker stays, under a
+      caveat that hormonal contraception usually means there's no
+      natural cycle for these phases to describe.
+18. "What works for me" log — optional, on the Today form, under the
+    existing fields: tick strategies tried today from the fixed list of
+    10 (Data), one "how did today go" rating (1–5) and an optional
+    energy rating (1–5). One tap per item, no typing, so it takes well
+    under 20 seconds. No calorie, weight or diet tracking or content.
+19. The 6-month gate (gate.py) — the personalised features (Feature 20's
+    findings, Phase Guide, Week Fit) appear only when ALL of:
+    - the first logged day is at least 180 days before today;
+    - at least 4 completed cycles (not 6: with 35–38 day cycles, 180
+      days holds only 4 completed cycles, so 6 would lock out users
+      with long but normal cycles for 7–8 months);
+    - at least 50% of the last 180 days have a log entry (90 days).
+    Before the gate: a warm progress view (three progress bars, one per
+    condition, "x of y so far") and the phase tracker; no findings, no
+    plan, no LLM call. Users on hormonal contraception never pass to
+    the plan (decision (d)); they see the caveat instead.
+20. "What works for me, by phase" (whatworks.py) — local statistics.
+    - Data: rated days (day_rating present) in completed cycles only,
+      each placed in one of the 3 buckets by Feature 17. The current
+      cycle is excluded (its phases are forward guesses).
+    - For each (bucket, strategy): compare the day rating on days the
+      strategy was used against days it wasn't, within the same cycle
+      and the same bucket — the user's own baseline for that phase.
+    - Minimum before any result: 8 uses in that bucket, spread over at
+      least 4 different cycles that each also have at least one rated
+      non-use day in that bucket. Below that: "not enough data yet"
+      with the counts, never a number.
+    - Method (days within a cycle aren't independent): a stratified
+      permutation test. Statistic: the weighted mean over cycles of
+      (mean rating on use days − mean on non-use days), weight
+      n_use·n_non/(n_use+n_non). Null distribution: shuffle which days
+      were "use" days within each cycle separately, keeping each
+      cycle's number of use days. Exact enumeration when there are at
+      most 20,000 arrangements, otherwise 5,000 random shuffles with a
+      fixed seed (p = (1 + hits)/(1 + 5,000)). Two-sided.
+    - Multiple comparisons: Benjamini–Hochberg over every pair that met
+      the minimum, at q < 0.10 (an addition to decision (b), explained
+      in DECISIONS.md).
+    - Result per pair: "tends to go well" (positive, q < 0.10), "tended
+      to be rated lower" (negative, q < 0.10), or "no clear difference".
+      Confidence tier for positives: "strong evidence" (q < 0.01 and
+      ≥ 6 cycles), "moderate evidence" (q < 0.05), "early sign"
+      (q < 0.10).
+    - Wording is associative only: "In your data, days with a walk
+      during your luteal phase tended to be rated higher (3.9 vs 3.1)".
+      Never "because", "boosts", "your hormones". Stated limits on the
+      page: strategies are chosen by feel (a good day may cause the
+      walk, not the other way round); days close together still affect
+      each other; phases are estimates.
+    - Shown only after the gate and not for hormonal contraception.
+21. Demo mode (demo.py) — a labelled demo account ("Demo (sample
+    data)", email demo@nova.invalid, no usable password) seeded from
+    simulate.py with 10 completed cycles (over 8 months) of logs, day
+    ratings and strategies, with a planted per-phase effect (strength
+    in follicular, early night in luteal, walk on period days). Entered
+    with a "Try the demo" button on the login page. Every page shows a
+    "Demo data — not a real person" banner. It cannot mix with real
+    accounts: it can't save logs, create or redeem invite codes, and
+    signup refuses the @nova.invalid domain; partner.py enforces the
+    invite rules itself, not just the UI. Opt-ins for the demo live in
+    the visitor's tab session only. The demo data is re-seeded when
+    it's older than today (synthetic rows only). The same seeding
+    function is the end-to-end test fixture.
+22. Phase Guide (LLM call 1) — see "LLM layer (Level 2)". Off until the
+    user opts in (Settings); without opt-in, or without a key, or on
+    any failure, the template version shows.
+23. Week Fit (LLM call 2) — see "LLM layer (Level 2)", "Plan my week"
+    page. Off until the user opts in; the template version needs no
+    opt-in because it reads no notes.
+
+## Constraints (what leaves the machine)
+Provider: Anthropic API, model `claude-opus-5-5` (one constant in
+llm.py), effort low, structured JSON output. Anthropic deletes API
+inputs and outputs within 30 days and does not use API data for
+training by default (checked 2026-10-30, sources in DECISIONS.md).
+The request goes from the Fly.io machine, so the provider sees the
+server's address, never the user's. Nothing below is sent unless the
+user has opted in to that call type.
+
+| Call | Sent | Never sent |
+|---|---|---|
+| Phase Guide | A fixed system prompt; the 3 phase labels; for each phase the strategy labels that "tend to go well" with their confidence tier; the user's typical cycle-length range as two whole numbers (shortest–longest of the last ≤ 12 cycles) | Dates, free text, name, email, user id, symptoms, mood, ratings, log rows, counts per day |
+| Week Fit | A fixed system prompt; for each of the next 7 days: the day name (e.g. "Tuesday"), its candidate phase label(s), the strategy labels offered for it with tiers, and the user's note for that day (≤ 200 characters, already passed the local email/phone check) | Dates, name, email, user id, symptoms, mood, ratings, log rows, anything about other days' notes beyond the notes themselves |
+
+Both payloads are built by one function each (phase_guide.payload(),
+week_fit.payload()) and tests assert on the real HTTP request body the
+SDK would send. The API key comes only from the ANTHROPIC_API_KEY
+environment variable (a Fly secret in production, never a file in the
+repo). No payload, note or model output is written to logs or the
+database (except a validated Phase Guide, which contains no user text).
 
 ## Acceptance Criteria
 - [ ] Two accounts can be created and linked via invite code; the invited
@@ -353,6 +530,47 @@ items stay listed here as a pointer.
       days between bleeds is still one period; 7 starts a new one
 - [ ] `pytest tests/` passes
 
+Level 2 (Features 17–23; the LLM layer's own list is in its section):
+- [ ] Phase tracker: on hand-worked cycles (incl. a 24-day and a 38-day
+      cycle, and luteal_days 12 vs 14), every day gets the expected
+      phase; ovulation for completed cycles is counted back from the
+      next start; the current cycle shows a window, never one day; no
+      28-day default anywhere (a user with 3+ cycles of 35 days gets
+      phases scaled to 35)
+- [ ] Changing luteal_days moves the fertile window (Feature 3) and the
+      phases together; the default (null) behaves exactly as before
+      (existing fertile-window tests unchanged)
+- [ ] The Today page never shows a phase name (AppTest)
+- [ ] "What works for me" fields save and reload; rating/energy outside
+      1–5 and unknown strategies are refused by db.py, not just the UI
+- [ ] Gate: each of the three conditions blocks on its own (boundary
+      tests at 179/180 days, 3/4 cycles, 89/90 logged days); before the
+      gate no finding, plan or LLM call is reachable (AppTest)
+- [ ] By-phase analysis: on a hand-built fixture with expected values
+      computed by hand (in the test's comments), the planted effect is
+      found with the exact statistic and exact p-value, the no-effect
+      negative control is not, and pairs below 8 uses / 4 cycles return
+      "not enough data"; tests/test_whatworks_fixture.py is fixed once
+      written, like test_lifestyle_link.py
+- [ ] By-phase analysis on simulated people: planted effects found in
+      ≥ 80% of people, and ≤ 10% of people with no planted effect get
+      any "tends to go well" finding
+- [ ] Hormonal contraception: findings, Phase Guide and Week Fit are off
+      and the caveat shows (AppTest)
+- [ ] Demo: seeded with ≥ 8 months, the planted effects are found end
+      to end; the demo can't save logs or create/redeem invites
+      (function level); signup refuses @nova.invalid; the banner shows
+      on every page
+- [ ] Level 2 data is absent from the doctor export (CSV and PDF text)
+      and unreachable from PartnerView; present in the full export;
+      gone after delete-all (raw-file grep)
+- [ ] Migration: a database created with the pre-Level-2 schema and
+      data opens with the new code, gains the new columns/tables, and
+      every pre-existing row is unchanged (also run on a copy of the
+      local data/nova.db)
+- [ ] No test makes a real provider call (the no_network fixture guards
+      every LLM test; the provider is mocked at the HTTP transport)
+
 ## Output Files
 app.py, theme.py (loads the custom CSS + card/empty-state helpers shared
 by every page), db.py, auth.py, partner.py, predict.py, irregularity.py,
@@ -366,6 +584,14 @@ tests/test_theme.py, tests/test_export.py, tests/test_charts.py, tests/test_loca
 disclaimer checks), tests/test_qna.py,
 tests/test_lifestyle_link.py, tests/test_remedy.py, requirements.txt,
 Dockerfile, docker-compose.yml, .dockerignore, README.md
+
+Level 2 adds: phases.py, gate.py, whatworks.py, demo.py, llm.py,
+phase_guide.py, week_fit.py, DECISIONS.md, scripts/check_migration.py,
+scripts/eval_week_fit.py + eval/week_fit_samples.json (stretch),
+tests/test_phases.py, tests/test_gate.py, tests/test_whatworks.py,
+tests/test_whatworks_fixture.py (fixed once written), tests/test_demo.py,
+tests/test_llm.py, tests/test_phase_guide.py, tests/test_week_fit.py,
+tests/test_migration.py, tests/test_level2_app.py.
 
 ## Open Questions (unresolved, flagging rather than guessing)
 - Exact pastel hex values given above are a starting point, not final —
@@ -401,16 +627,30 @@ Dockerfile, docker-compose.yml, .dockerignore, README.md
     prediction and irregularity ones now live in the acceptance list
     below Features)
 
+- Level 2 ambiguities, flagged rather than guessed (each is resolved in
+  DECISIONS.md, and each could be revisited):
+  - The LLM layer's table says Phase Guide needs no opt-in; the
+    Level 2 rules say both LLM features are off until the user opts
+    in. The stricter rule wins: Phase Guide is opt-in too.
+  - Appendix A mentions a "Phase Planner"; read as the two LLM
+    features plus Feature 20 (there is no separate planner).
+  - "Personalised plan" in decision (d) is read as Feature 20's
+    findings plus Phase Guide; the phase tracker itself stays.
+  - seasons.py (design preview, not wired in) maps 4 phases to 4
+    seasons; the analysis uses 3 buckets. Display names stay 4.
+  - The demo account is shared by every visitor of the hosted app, so
+    it is read-only for logs, and its LLM caps are shared too.
+
 ## Not yet built
 Deferred from v2's original scope to keep the two-week build realistic.
 Described here so they're not lost; each needs its own spec pass before
 it's started.
 
-- **Explain My Trend (Feature 8)** — one AI call, sending only
-  pre-computed aggregate numbers, never raw logs; single request, single
-  reply. Would live in explain.py with tests/test_explain.py. Needs an AI
-  provider chosen first (not decided). Note: this is a new feature, not a
-  v1 carry-over.
+Explain My Trend (Feature 8) is no longer here: it was dropped, not
+deferred. The LLM layer (see "LLM layer (Level 2)") replaces it, and its
+job is now one sentence inside Phase Guide. There is no separate
+explain.py.
+
 - **Pregnancy mode (Feature 11)** — toggle from cycle-tracking to
   pregnancy-tracking; due date estimated from logged last-period start
   date, a running week counter, and a simple weekly log (weight,
@@ -445,3 +685,270 @@ it's started.
   starting: AI provider; reconciling its symptom names ("cramping") with
   the daily log's vocabulary; the lists need clinician review if ever
   used beyond a demo.
+
+## LLM layer (Level 2)
+
+### Why an LLM here, and only here
+Statistics decide what is true about the user: predictions, phase effects,
+which strategies tend to go well. The LLM is used for what a form or a
+template can't do: reading an open-ended week written in the user's own words
+and fitting her findings around it (Week Fit), and writing the findings up
+readably (Phase Guide). It never computes, never decides which strategies the
+findings support, and never sees her logs, symptoms, dates or identity.
+Honest limit: Phase Guide could be a template, and its fallback is one. Week
+Fit is the call that needs a language model, because the constraints in a
+real week are open-ended and a template can't read them.
+
+### What "Level 2" means here
+Exactly two kinds of LLM call, each one request and one reply, each with a
+hard daily limit. No multi-turn chat, no tool use, no memory between calls,
+no model deciding what happens next. The app stays English-only.
+
+### How the two calls differ
+| | Phase Guide | Week Fit |
+|---|---|---|
+| Question | What tends to go well for me in each phase? | Given my real week, where do those things fit? |
+| When | After the gate, at most once per completed cycle; result kept in the DB | On request, any time after the gate |
+| User-written text | None | A short note per day, max 200 characters |
+| Output | A short guide per phase | 1-2 suggestions per day, one short sentence each |
+| Template fallback | Strategies per phase as a plain list | Strategies per day by that day's phase; notes not read |
+| Opt-in needed | Yes (Level 2 rule: both LLM features are off until the user opts in; see Open Questions) | Yes (free text leaves the machine) |
+
+### Call 1: Phase Guide
+- Runs only after the 6-month gate.
+- Local code chooses the strategies (findings that cleared the significance
+  bar). The LLM only phrases them. It may add one plain-language sentence
+  about the user's typical cycle length range, from numbers only.
+- Payload: phase labels, strategy labels, and a confidence tier for each
+  (e.g. "tends to go well, moderate evidence"). No dates, no free text, no
+  identity, no raw logs.
+- Output is validated: only the supplied strategies, associative wording
+  ("tends to"), no medical advice. Any violation rejects the output and shows
+  the template version.
+- The standing medical disclaimer renders next to the guide.
+
+### Call 2: Week Fit
+- Where: a "Plan my week" page, after the gate.
+- The user writes a short note for each of the next 7 days (e.g. "report due",
+  "mum visiting", "early lecture"). One box per day, so the model never has to
+  resolve "next Tuesday".
+- Per day, local code supplies the day name (not the date), the estimated
+  phase for that day, and the strategies that tend to go well in that phase,
+  with confidence tiers. Phases for coming days are estimates. A day inside
+  the uncertainty window gets both candidate phases, and only strategies that
+  tend to go well in both are offered. Claude Code proposes the exact rule.
+  Rule (decided): for each day, phases.candidate_buckets() tries every
+  possible next-period start in the Honest range E..T and collects the
+  bucket the day would fall in for each (a day on or after a candidate
+  start counts as period for the typical period length, then
+  follicular). One bucket → that bucket's strategies. Two or three →
+  only strategies that tend to go well in all of them (intersection);
+  if none, the day gets no suggestion and says why. Once the period is
+  late, every day is {luteal, period}. Below 3 cycles there is no
+  prediction and Week Fit isn't offered (the gate needs 4 anyway).
+- Output, per day: 1-2 strategies chosen only from the list supplied for that
+  day, plus one sentence (max 25 words) saying how they fit the day's note.
+  It never reschedules, adds or removes the user's commitments, and gives no
+  medical advice.
+- Output is validated: strategies not in that day's list are dropped, an
+  invalid structure is rejected, and either case shows the template.
+  Limit, stated honestly: code can't fully verify that a sentence is faithful
+  to the user's note. So each sentence is shown next to the user's own note,
+  and kept short.
+- Privacy: this is the one place user-written text leaves the machine. It is
+  about her schedule, which is less sensitive than symptoms, but not zero.
+  Opt-in per user, off by default, with a notice before first use ("what you
+  type here is sent to <provider>; don't include names, contact details or
+  health details"). A local check rejects text that looks like an email
+  address or phone number. Revocable in settings.
+- The notes and the generated week are kept only for the request and the
+  current screen. They are not stored, not logged, not exported.
+- Notes are untrusted text. Output is validated against the supplied lists, so
+  instructions hidden inside a note can't add anything.
+
+### Rules for both calls
+- One thin module, llm.py. Swapping providers is a one-file change. The
+  provider is chosen after Claude Code reports 2-3 options with current
+  pricing, free-tier status, data-retention and training-on-inputs policy, and
+  what it could not verify.
+  Chosen: Anthropic (claude-opus-5-5, effort low). The comparison with
+  Groq and Google Gemini is in DECISIONS.md.
+- The API key comes from an environment variable or secret, never from code.
+  .env is gitignored. pytest mocks the provider and makes no real calls.
+- Per-user daily cap for each call type, stored in the database and enforced
+  server-side. Proposed: Phase Guide 3/day, Week Fit 5/day. Friendly message
+  when reached. Decided as proposed; every attempt counts, including
+  failed ones, and the counter is taken before the request is sent
+  (one transaction), so a retry loop can't exceed it. "Day" is the
+  server's UTC date.
+- If a call fails (no network, bad key, provider down), show a short message
+  and the template version. Everything else keeps working.
+- No payload or note text appears in application logs.
+
+### Evaluation (Week Fit)
+A hand-built set of about 15 sample weeks, each with day notes and the allowed
+strategies. A separate script (not pytest) runs the real provider on them and
+reports (a) how often the raw output passed validation without falling back
+to the template, and (b) a sensible-fit rate, where I mark each day's
+suggestion as respecting that day's note or not. Record both numbers in
+README.md as informational, with the small-sample caveat.
+
+### Acceptance criteria
+- [ ] Exactly two call types exist, and a test confirms nothing else reaches
+      llm.py
+- [ ] Phase Guide payload contains only labels, tiers and numbers (test
+      asserts on the real request body)
+- [ ] Week Fit payload contains only day names, phase labels, strategy labels,
+      tiers and the per-day notes: no dates, user id, email, name, symptoms or
+      log rows
+- [ ] A mocked response containing a strategy not supplied is dropped (Week
+      Fit) or rejected (Phase Guide), and the template is shown
+- [ ] A day note containing "ignore previous instructions..." changes nothing
+      beyond the allowed output (mocked adversarial response)
+- [ ] A note that looks like an email address or phone number is rejected
+      locally and never sent
+- [ ] After use, the database and logs contain no note text (test greps both)
+- [ ] The daily cap blocks call N+1, per user and per call type
+- [ ] Provider failure leaves the app usable and shows the template
+- [ ] Week Fit is off until the user opts in, and revoking stops it
+- [ ] No API key in tracked files
+- [ ] The evaluation script runs, and its results are in README.md
+
+### Non-goals for the LLM layer
+- No chat, no follow-up questions, no tool use, no memory between calls
+- No UI translation, no multi-language input
+- No separate Explain My Trend call (its job is one sentence in Phase Guide)
+- No Symptom Checker (still deferred)
+- No calendar integration
+- The LLM never infers flow, mood, energy, or the daily rating
+
+## Appendix A — Cycle phase reference (for Claude Code)
+
+Read this before building or changing anything that names a phase: the phase
+tracker, the by-phase analysis, the Phase Planner, or any Q&A wording. It is
+background, not a feature list. Where it says DECISION NEEDED, stop and ask
+me. Don't pick silently. Facts are paraphrased from the linked sources, and
+the sources vary in quality (noted below).
+
+### A1. Phase basics
+(Cleveland Clinic patient-education pages, see A6)
+- A cycle runs from the first day of one period to the day before the next.
+  Normal is roughly 21–35 days. 28 is the commonly quoted average. A period
+  of 3–7 days is normal.
+- Ovulation splits the cycle into two halves: follicular (starts on day 1 of
+  the period, ends at ovulation) and luteal (ovulation to the next period).
+- Many consumer sources show four phases: menstruation, follicular,
+  ovulation, luteal. Menstruation overlaps the early follicular phase, and
+  "ovulation" is a short window around one event, so the four are not four
+  clean, separate blocks.
+- Hormones: estrogen and progesterone are both low at the start of a period.
+  Estrogen rises through the follicular phase, an LH surge triggers
+  ovulation, progesterone dominates the luteal phase, and then both fall if
+  there is no pregnancy, which brings the next period.
+- Luteal phase: about 14 days is commonly quoted, 10–17 is called normal, and
+  it stays fairly consistent within one person. Follicular phase: 14–21 days
+  is quoted, and it is the half that varies.
+
+### A2. Real-world numbers
+Bull et al. 2019, npj Digital Medicine: 612,613 ovulatory cycles from 124,648
+users of one app (Natural Cycles). Caveats: some authors had financial ties
+to the company, and app users are a self-selected group, not a random sample.
+- Mean cycle 29.3 days. Only 13% of cycles were exactly 28 days. About 91%
+  fell in 21–35.
+- Mean follicular phase 16.9 days (95% range 10–30). Mean luteal phase 12.4
+  days (95% range 7–17).
+- Longer cycles differ mostly in follicular length. The luteal phase barely
+  changes.
+- From age 25 to 45, cycle length shrinks by about 0.18 days per year.
+Takeaway: phase lengths are person-specific. "28 days, ovulation on day 14"
+is a textbook, not the typical case.
+
+### A3. How well can a phase be known from the calendar?
+- Johnson et al. 2018 (949 volunteers, urine hormone tests): ovulation day
+  varies a lot for any given cycle length, so apps that use cycle length
+  alone cannot accurately predict it.
+- Sports Health 2013 (calendar-based phase assignment): counting from
+  self-reported dates should not be used alone when identifying ovulation
+  accurately matters. Urinary ovulation tests helped.
+Implications (my reading, not a source's claim):
+- Label every phase as an estimate, and show windows rather than single days.
+- For completed cycles, place ovulation backwards from the next period start.
+  That is better than a forward guess, but still an estimate.
+- For the current cycle, show the uncertainty, don't hide it.
+
+DECISION NEEDED: SPEC.md sets ovulation = next period minus 14 days. The data
+above suggest a mean luteal phase nearer 12–13 days, with wide spread. Ask me
+whether to keep 14 (simple and standard), change the default, or make it a
+per-user setting. Don't change it silently: the fertile-window tests and the
+coverage tests depend on it.
+
+### A4. What research says about phase effects
+This is why Nova personalizes instead of handing out phase tips.
+- Exercise: McNulty et al. 2020 (meta-analysis, 78 studies) found at most a
+  trivial dip in performance during the early follicular phase. The evidence
+  was mostly low quality, and the authors say it doesn't support general
+  guidance. They recommend a personalised approach.
+- Strength training: a 2023 umbrella review (Colenso-Semple, D'Souza,
+  Elliott-Sale, Front Sports Act Living 5:1054542) reports no meaningful
+  phase influence on strength or training adaptation. I only saw this through
+  a secondary summary, so look up the paper before relying on it.
+- Mood: studies using daily ratings recorded as they happen do not support a
+  universal premenstrual mood drop. In one 6-month daily study, only about
+  half of mood items showed any phase link, and physical health, perceived
+  stress and social support explained daily mood better than phase did.
+  Looking back and reporting mood afterwards overstates cyclical change
+  compared with daily ratings.
+- Cognition: reviews find inconsistent results. The luteal phase is linked
+  with poorer emotion-related thinking. Other kinds of cognition are less
+  consistent.
+- Individual differences are real: people differ in how sensitive they are to
+  hormonal change. That is the case for per-person analysis and for daily
+  prospective logging.
+
+Wording rules:
+- Use "tends to" and "in your data". Never "your hormones make you...".
+- Don't state phase-to-energy, creativity or intuition claims as facts.
+- The Mya Care infographic makes claims like "creativity peaks" and "high
+  intuition". Nothing in this appendix supports them. Don't reproduce them.
+
+### A5. Design implications for the by-phase analysis (my suggestions, evaluate)
+- Fewer buckets. With about 6 cycles, 4 phases times ~10 strategies is a lot
+  of comparisons, and some will look real by chance. Consider 3 buckets
+  (period days / rest of follicular plus the ovulation window / luteal), or
+  correct for multiple comparisons, and say which in the spec.
+- Expectation bias. If I see "you're in your luteal phase" while rating my
+  day, my rating may drift toward the stereotype. Consider not showing the
+  phase on the daily logging screen, and revealing it only in the analysis.
+- Alignment. The luteal phase is the steadier half, so align luteal days
+  backwards from the next period and follicular days forwards from the
+  period start.
+- Hormonal contraception means no natural cycle. This isn't sourced here, but
+  the Q&A already says it. DECISION NEEDED: disable the phase features for
+  those users, or show a caveat?
+
+### A6. Sources
+- Cleveland Clinic, menstrual cycle: https://my.clevelandclinic.org/health/body/10132-menstrual-cycle
+- Cleveland Clinic, follicular phase: https://my.clevelandclinic.org/health/body/23953-follicular-phase
+- Cleveland Clinic, luteal phase: https://my.clevelandclinic.org/health/body/24417-luteal-phase
+- Cleveland Clinic, normal menstruation: https://my.clevelandclinic.org/health/articles/normal-menstruation
+- Bull et al. 2019 (large app dataset): https://pmc.ncbi.nlm.nih.gov/articles/PMC6710244 (doi 10.1038/s41746-019-0152-7)
+- Johnson et al. 2018 (apps and calendar methods vs ovulation): https://doi.org/10.1080/03007995.2018.1475348
+- Accuracy of calendar-based phase assignment, Sports Health 2013: https://pmc.ncbi.nlm.nih.gov/articles/PMC3658377/
+- McNulty et al. 2020 (exercise meta-analysis): https://pmc.ncbi.nlm.nih.gov/articles/PMC7497427/
+- Mood across 6 months of daily ratings (Karger): https://karger.com/pps/article/82/1/53/289418/Mood-and-the-Menstrual-Cycle
+- Le et al. 2020 (cognition review): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7226433/
+- Eisenlohr-Moul commentary (individual differences, prospective ratings): https://pmc.ncbi.nlm.nih.gov/articles/PMC8429129
+- Kiesner et al. 2016 (individual differences in cyclical change): https://lilia.dpss.psy.unipd.it/~massimiliano.pastore/papers/Kiesner_et_al_2016.pdf
+- Utah cycle-length dataset (real cycles, used for simulator calibration): https://hive.utah.edu/concern/datasets/7h149p93m (doi 10.7278/S50d-4gxs-s4hj)
+
+### A7. Not used, or use with care
+- Mya Care page: link for further reading only, https://myacare.com/blog/what-is-cycle-syncing .
+  Don't copy its text or its infographic (its footer forbids reproduction
+  without written permission).
+- Wellness blogs that came up in my searches were not used for any fact above.
+- A 2026 medRxiv preprint on fertile-window misclassification in period
+  trackers (543,167 cycles) exists: https://www.medrxiv.org/content/10.64898/2026.02.12.26346180.full.pdf .
+  It is not peer reviewed and I only saw the abstract's setup, not its
+  results, so read it before relying on it.
+- Everything here is general information. Any health wording that ships in
+  the app still needs my review.

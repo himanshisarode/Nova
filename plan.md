@@ -17,9 +17,10 @@ start. Partner sharing needs the core's read paths to exist, so it
 follows. Charts/export/Q&A, the two local-stats features, app.py, and
 Docker close it out.
 
-Pregnancy mode (old Phase 5) and Symptom Checker (old Phase 6), plus
-Explain My Trend, are deferred — see SPEC.md's "Not yet built". Phase
-numbers are kept as-is so earlier references still line up.
+Pregnancy mode (old Phase 5) and Symptom Checker (old Phase 6) are
+deferred — see SPEC.md's "Not yet built". Explain My Trend was dropped;
+SPEC.md's LLM layer replaces it. Phase numbers are kept as-is so earlier
+references still line up.
 
 ## Estimate (two-week build ≈ 10 working days)
 | Phase | What | Est. days |
@@ -43,7 +44,8 @@ SHAP explanations on irregularity flags (keep the flag itself). Neither
 is cut yet; flagging now so it's a decision, not a surprise.
 
 ### Phase 0 — scaffolding + design system
-- requirements.txt (adds bcrypt; no AI SDK — both AI features deferred)
+- requirements.txt (adds bcrypt; no AI SDK — no AI feature was in scope
+  then; the SDK arrives with Phase 10)
 - .streamlit/config.toml with the pastel palette from SPEC.md
 - assets/ with custom CSS for cards/shadows/whitespace; static/fonts/
   with self-hosted Quicksand; theme.py to apply both on any page
@@ -202,6 +204,125 @@ Acceptance:
   persistence test fails rather than skips if Docker were missing.
 - [x] Full `pytest tests/` passes — final gate before calling v2 done
       (with the Docker live check skipped, see above)
+
+## Level 2 (branch `level2`) — Phases 10–16
+Reads against SPEC.md Features 17–23, "Constraints" and "LLM layer
+(Level 2)"; every choice is explained in DECISIONS.md. One commit per
+phase, full `pytest tests/` before each, and the app stays runnable and
+deployable at every commit (new modules are unused until Phase 15
+wires them in; db.migrate() is additive, so an early deploy is safe).
+
+### Estimate (≈ 12 hours available; budget ≈ 8 for the build)
+| Phase | What | Est. hours |
+|---|---|---|
+| — | spec.md, plan.md, DECISIONS.md | 1 |
+| 10 | phases.py, "what works" log in db.py, gate.py, migration | 1.5 |
+| 11 | whatworks.py + hand fixture + simulation check | 1.5 |
+| 12 | llm.py, caps, mocked-provider tests, Phase Guide (→ Level 1) | 1.5 |
+| 13 | demo.py (+ simulate.py strategies) | 0.75 |
+| 14 | week_fit.py (→ Level 2) | 1 |
+| 15 | app.py wiring, exports/delete, migration check script | 1.5 |
+| 16 | stretch: Week Fit evaluation script | 0.5 |
+| | **Total** | **≈ 9.25** |
+
+Honest view: that is over the 8-hour budget by about an hour, and
+Phase 15 (UI) is where overruns usually happen. If it runs long, cut in
+this order: Phase 16 (mark "not yet built"); then the confidence
+tiers (keep one); then the demo's daily re-seeding (seed once instead).
+Never cut: the non-negotiable rules, the fixture, the payload tests.
+
+### Phase 10 — phases.py, "what works for me" log, gate.py
+- db.py: STRATEGIES; daily_log.day_rating/energy; daily_strategy;
+  user_settings; db.migrate() (additive only); LogEntry gains optional
+  day_rating, energy, strategies (defaults keep every existing call
+  working); save_logs() bulk path; settings get/set; delete_account
+  covers the new tables
+- predict.fertile_window(prediction, luteal_days=LUTEAL_DAYS)
+- phases.py: periods per cycle, day → phase for completed cycles,
+  current-cycle windows, bucket(), candidate_buckets()
+- gate.py: the three conditions + progress
+Acceptance:
+- [ ] tests/test_phases.py: hand-worked cycles (24, 29, 38 days; L 12
+      and 14), current-cycle windows, late period, < 3 cycles
+- [ ] tests/test_gate.py: each boundary on its own
+- [ ] tests/test_migration.py: old-schema database migrates, rows
+      unchanged; running migrate twice is a no-op
+- [ ] Existing suite unchanged and passing
+
+### Phase 11 — whatworks.py
+- Stratified permutation test + BH, minimums, tiers, describe()
+- tests/test_whatworks_fixture.py written by hand first (expected
+  values worked out in comments), then frozen
+- simulate.py: strategy/rating simulation on its own RNG stream, so
+  every existing simulate test keeps its numbers
+Acceptance:
+- [ ] Fixture: planted effect found with the exact statistic/p-value;
+      negative control not found; below-minimum pairs refused
+- [ ] Simulation: planted effects found in ≥ 80% of people; ≤ 10% of
+      no-effect people get any "tends to go well"
+- [ ] whatworks.py imports nothing network-capable (same AST check)
+
+### Phase 12 — llm.py + Phase Guide (Level 1)
+- llm.py: Anthropic SDK, model constant, key from env only, caps in
+  llm_usage, CALL_TYPES = (phase_guide, week_fit), no payload logging,
+  provider errors → LLMUnavailable; injectable http client for tests
+- phase_guide.py: payload(), template(), validate(), generate() with
+  storage in phase_guide (once per completed cycle)
+- .env in .gitignore; requirements.txt adds anthropic
+Acceptance:
+- [ ] Real request body (captured by an httpx2 MockTransport) holds
+      only labels, tiers and two numbers
+- [ ] Unsupplied strategy / medical wording / non-associative wording
+      → rejected → template
+- [ ] Cap blocks call N+1 per user and per call type
+- [ ] No key, network error, 500, bad JSON → template, app usable
+- [ ] Off until opt-in; only phase_guide.py and week_fit.py import llm
+- [ ] No API key string in any tracked file (test greps git ls-files)
+
+### Phase 13 — demo.py
+- simulate.py planted per-phase strategy effects; demo.seed(conn,
+  today); ensure_demo(); is_demo flag; partner.py refuses demo
+  invites; auth.signup refuses @nova.invalid
+Acceptance:
+- [ ] ≥ 8 months seeded; planted effects found end to end
+- [ ] Demo can't save logs, create or redeem invites (function level)
+
+### Phase 14 — week_fit.py (Level 2)
+- Notes check (≤ 200 chars, email/phone patterns), payload(),
+  template(), validate() (per-day drop → that day's template; bad
+  structure → whole template), generate(); nothing stored
+Acceptance: SPEC.md LLM layer list (payload, injection, notes never in
+the DB or logs, cap, failure, opt-in/revoke)
+
+### Phase 15 — wiring + migration
+- Today: strategies, day rating, energy (no phase label)
+- New pages "My phases" (tracker, gate progress, findings, Phase
+  Guide) and "Plan my week" (Week Fit); Settings: luteal days,
+  contraception, opt-ins with the provider notice; login: "Try the
+  demo"; demo banner; exports and delete-all extended (the exact-file
+  list in test_export.py grows by the new files — a spec change, the
+  test isn't loosened)
+- scripts/check_migration.py: copies a database file, migrates the
+  copy, compares every pre-existing table row by row, prints counts
+- Production (done by the owner, not by Claude Code; exact commands in
+  README "Upgrading to Level 2"): snapshot the volume and download a
+  copy of /data/nova.db; run check_migration.py on that copy locally;
+  `fly secrets set ANTHROPIC_API_KEY=...` (never in the repo);
+  `fly deploy` (same app name nova-aug47w, so the link doesn't change);
+  log in and compare row counts with the pre-deploy numbers
+Acceptance:
+- [ ] Every Level 2 feature reachable; disclaimer in every card that
+      shows a phase or finding; pre-gate users see progress only
+- [ ] Migration check passes on a copy of the local data/nova.db
+- [ ] Full suite passes (incl. Docker)
+
+### Phase 16 — stretch: Week Fit evaluation script
+- eval/week_fit_samples.json (≈ 15 hand-built weeks);
+  scripts/eval_week_fit.py runs the real provider (needs the key,
+  never run by pytest), reports validation-pass rate and writes a
+  sheet for the owner's sensible-fit marks; numbers go in README with
+  the small-sample caveat
+- If not reached: SPEC.md lists it under "Not yet built"
 
 ## Risks / ambiguities
 - Phase 2/3 depend on definitions that used to be inherited from v1 and
