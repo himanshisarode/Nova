@@ -1,4 +1,5 @@
-"""Phase 7: "Did You Know?" — ten static entries, rendered with no network."""
+"""Phase 7 / Level 2: "Did You Know?" — 21 static entries in three
+sections, rendered with no network."""
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,12 @@ import qna_content
 ROOT = Path(__file__).parent.parent
 
 
-def test_exactly_ten_entries_with_question_and_answer():
-    assert len(qna_content.QNA) == 10
+def test_exactly_21_entries_in_three_sections_with_question_and_answer():
+    assert len(qna_content.QNA) == 21
+    assert [(title, len(items)) for title, items in qna_content.SECTIONS] == [
+        ("Cycle syncing", 3), ("Your cycle's phases", 6), ("Common questions", 12),
+    ]
+    assert qna_content.QNA == [i for _, items in qna_content.SECTIONS for i in items]
     for item in qna_content.QNA:
         assert set(item) == {"question", "answer"}
         assert item["question"].strip().endswith("?")
@@ -40,7 +45,16 @@ def logged_in(tmp_path, monkeypatch):
     return user
 
 
-def test_page_renders_all_ten_with_the_label_and_no_network(logged_in, no_network):
+def test_ranges_match_the_apps_own_numbers():
+    # The irregularity flag uses FIGO's 24–38 days and the fertile window runs
+    # 5 days before ovulation to 1 after; the Q&A must not say otherwise.
+    text = " ".join(i["answer"] for i in qna_content.QNA)
+    assert "21 or more than 35" not in text and "21–35" not in text
+    assert "shorter than 24 or longer than 38 days" in text
+    assert "five days before ovulation to a day after" in text
+
+
+def test_page_renders_every_entry_with_the_label_and_no_network(logged_in, no_network):
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=90)
     at.session_state[auth.SESSION_KEY] = logged_in
     at.run()
@@ -52,4 +66,6 @@ def test_page_renders_all_ten_with_the_label_and_no_network(logged_in, no_networ
     for item in qna_content.QNA:
         assert item["answer"] in answers
     labels = [c.value for c in at.caption if c.value == qna_content.EDUCATION_LABEL]
-    assert len(labels) == 10  # under every answer
+    assert len(labels) == len(qna_content.QNA)  # under every answer
+    headings = [m.value for m in at.markdown if m.value.startswith("#### ")]
+    assert headings == [f"#### {title}" for title, _ in qna_content.SECTIONS]

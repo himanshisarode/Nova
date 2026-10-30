@@ -313,3 +313,43 @@ Checked 2026-10-30.
 - No payload, note or model reply is logged. Week Fit notes live only
   in the page's session for the current screen. A validated Phase Guide
   is stored (it contains only labels and the model's phrasing of them).
+
+---
+
+## "Did You Know?" (2026-10-31)
+
+- **Decided:** 21 entries in three sections — Cycle syncing (3), Your
+  cycle's phases (6), Common questions (12) — instead of adding all 16
+  drafted entries to the original 10 (26).
+- **Why not 26:** several drafts repeated each other or an existing
+  entry. Merged rather than repeated:
+  - "Which hormones are involved?" → its facts now sit in the period,
+    follicular and luteal answers.
+  - "Why does my cycle length change?" and the original "Does ovulation
+    always happen on day 14?" → one ovulation entry.
+  - "How long should a period last?" and "Is a heavy flow always a
+    problem?" → one entry, keeping every safety sign from the original.
+  - "Why track a cycle at all?" → dropped; the app itself makes that
+    case, and the doctor entry covers when tracking helps most.
+- **Length:** answers are 3–6 sentences, the same as the original ten.
+  Drafts were kept word for word except where merged, plus two links to
+  Nova itself ("Does cycle syncing work?" points to "What works for me";
+  the phases entry explains Nova's three groups).
+- **Facts checked against Cleveland Clinic (2026-10-31):** the egg lives
+  about 12–24 hours, sperm up to about five days, and pregnancy is
+  possible from about five days before ovulation to one day after — so
+  the draft's "fertile window ends on the day of ovulation" was changed
+  to "to a day after", which also matches Nova's own fertile-window rule.
+  PMDD: symptoms in the week or two before a period that ease after it
+  starts, with intense low mood, anxiety or irritability; one line added
+  on getting help straight away with thoughts of self-harm, as Cleveland
+  Clinic's page does.
+- **21–35 vs 24–38 days:** the draft's doctor entry said "less than 21
+  or more than 35 days apart". That is the older range many patient
+  pages still give (including part of Cleveland Clinic's page). FIGO's
+  2018 definitions, which Nova's irregularity flag and the original
+  "28 days" answer use, say 24–38 days for adults. The entry now says
+  24–38, so the Q&A and the app never contradict each other; a test
+  checks it. Viva answer: both are "normal ranges"; 21–35 is the older
+  convention, 24–38 is the current international (FIGO) definition, and
+  Nova picked one and uses it everywhere.

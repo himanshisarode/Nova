@@ -201,7 +201,9 @@ def test_today_form_prefills_an_existing_day(db_path, conn):
 def test_qna_page_shows_the_entries(db_path, conn):
     # Full content checks (and the no-network check) are in test_qna.py.
     at = goto(app(seed(conn)), "Did You Know?")
-    assert len(at.expander) == 10
+    import qna_content
+
+    assert len(at.expander) == len(qna_content.QNA) == 21
 
 
 # --- partner flow through the UI ----------------------------------------------

@@ -227,7 +227,7 @@ remedy.py           Remedy Effectiveness
 charts.py           Plotly charts
 export.py           doctor PDF/CSV, export-my-data ZIP
 simulate.py         synthetic cycle histories for tests
-qna_content.py      "Did You Know?" content (10 fixed entries)
+qna_content.py      "Did You Know?" content (21 fixed entries, 3 sections)
 spec.md, plan.md    what's being built and in what order
 ```
 

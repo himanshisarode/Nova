@@ -549,13 +549,17 @@ def page_qna() -> None:
     if not qna_content.QNA:
         with card("qna-empty"):
             empty_state(icon="📖", title="These are being written",
-                        body="Ten short answers to common cycle questions are on their way.")
+                        body="Short answers to common cycle questions are on their way.")
         return
     with card("qna"):
-        for i, item in enumerate(qna_content.QNA):
-            with st.expander(item["question"], key=f"qna_{i}"):
-                st.markdown(item["answer"])
-                st.caption(qna_content.EDUCATION_LABEL)
+        i = 0
+        for title, items in qna_content.SECTIONS:
+            st.markdown(f"#### {title}")
+            for item in items:
+                with st.expander(item["question"], key=f"qna_{i}"):
+                    st.markdown(item["answer"])
+                    st.caption(qna_content.EDUCATION_LABEL)
+                i += 1
 
 
 def page_shared(conn, user: auth.User, today: date) -> None:

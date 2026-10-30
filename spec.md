@@ -41,9 +41,10 @@ is explained in plain language in DECISIONS.md.
 - HIPAA-grade compliance or any clinical certification — this is a course
   project. Disclaimers say so, clearly, throughout the app.
 - A growing, expert-reviewed content library — the "Did You Know?" Q&A
-  below is a fixed ten items, written once, no video, not labeled
+  below is a fixed set of 21 items in three sections (grown from ten on
+  2026-10-31 for Level 2), written once, no video, not labeled
   "expert-reviewed" since no clinician reviewed it. If this ever grows
-  past ten items or starts claiming clinical review, that's a real scope
+  past 21 items or starts claiming clinical review, that's a real scope
   change, come back and amend this spec first.
 - Persistent login across browser/tab restarts — a login lasts while the
   tab is open; closing it means logging in again.
@@ -301,8 +302,12 @@ items stay listed here as a pointer.
 11. *Pregnancy mode — deferred, see "Not yet built"*
 12. *Symptom Checker — deferred, see "Not yet built"*
 13. Pastel, card-based UI throughout (see Design)
-14. "Did You Know?" Q&A — a fixed page of 10 general-education questions
-    and answers, written once (not AI-generated, not user-editable),
+14. "Did You Know?" Q&A — a fixed page of general-education questions
+    and answers, written once (not AI-generated, not user-editable).
+    Level 2 (2026-10-31): 21 entries in three sections — Cycle syncing
+    (3), Your cycle's phases (6), Common questions (12) — merging the
+    owner's 16-entry draft with the original ten so no topic is covered
+    twice (DECISIONS.md). The original ten,
     covering common misconceptions: cycle-length "normal" range isn't
     exactly 28 days; pregnancy during a period is possible though less
     likely; ovulation isn't always day 14; mittelschmerz (ovulation
@@ -484,7 +489,7 @@ database (except a validated Phase Guide, which contains no user text).
       present)
 - [ ] `docker compose up` still serves the app with no errors, and data
       for multiple users survives a full container restart
-- [ ] All 10 "Did You Know?" entries render with a non-empty question and
+- [ ] All 21 "Did You Know?" entries render with a non-empty question and
       answer, and the page never calls any API — static content only
 - [ ] Lifestyle-Link Finder shows "not enough data yet" below 3 cycles
       per group, and a correctly-computed significance result above that
@@ -574,7 +579,7 @@ Level 2 (Features 17–23; the LLM layer's own list is in its section):
 ## Output Files
 app.py, theme.py (loads the custom CSS + card/empty-state helpers shared
 by every page), db.py, auth.py, partner.py, predict.py, irregularity.py,
-simulate.py, charts.py, export.py, qna_content.py (the 10 Q&A pairs as
+simulate.py, charts.py, export.py, qna_content.py (the 21 Q&A pairs as
 static data, kept separate from display logic so the content is easy to
 review on its own), lifestyle_link.py, remedy.py, .streamlit/config.toml,
 assets/ (custom CSS), static/fonts/ (self-hosted Quicksand + its OFL
